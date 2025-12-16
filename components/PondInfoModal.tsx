@@ -63,7 +63,7 @@ const KoiListItem: React.FC<{
             <span className="text-xs bg-gray-800 px-1.5 py-0.5 rounded border border-gray-600 text-gray-400">
               {koi.growthStage === 'adult' ? '성체' : koi.growthStage === 'juvenile' ? '준성체' : '치어'}
             </span>
-            {(koi.stamina ?? 0) <= 10 && (
+            {(koi.stamina ?? 0) <= 5 && (
               <span className="text-xs bg-red-900/50 px-1.5 py-0.5 rounded border border-red-500/50 text-red-400 font-bold animate-pulse">
                 병듦
               </span>
@@ -175,29 +175,25 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
 
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Fish className="text-cyan-400" /> 연못 현황
-            </h2>
-          </div>
-
-          {/* Pond Tabs */}
-          <div className="flex gap-2 mx-4 overflow-x-auto no-scrollbar">
+          {/* Pond Tabs - Replaces Title */}
+          <div className="flex gap-2 mr-auto overflow-x-auto no-scrollbar">
             {Object.values(ponds).map(pond => (
               <button
                 key={pond.id}
                 onClick={() => onPondChange(pond.id)}
-                className={`px-4 py-2 rounded-t-lg font-bold transition-all whitespace-nowrap ${activePondId === pond.id
-                  ? 'bg-gray-800 text-cyan-400 border-t-2 border-cyan-400'
-                  : 'bg-gray-900/50 text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+                className={`px-4 py-2 rounded-lg font-bold transition-all whitespace-nowrap flex items-center gap-2 ${activePondId === pond.id
+                  ? 'bg-gray-800 text-cyan-400 border border-cyan-500/50 shadow-lg shadow-cyan-900/20'
+                  : 'bg-gray-900/50 text-gray-500 hover:bg-gray-800 hover:text-gray-300 border border-transparent'
                   }`}
               >
+                {/* Optional Icon for active tab */}
+                {activePondId === pond.id && <Fish size={16} />}
                 {pond.name}
               </button>
             ))}
           </div>
 
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors ml-4">
             <X size={24} />
           </button>
         </div>

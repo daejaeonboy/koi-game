@@ -164,22 +164,10 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
     const [foodCount, setFoodCount] = useState(initialState?.foodCount ?? 20);
     const [cornCount, setCornCount] = useState(initialState?.cornCount ?? 0);
     const [medicineCount, setMedicineCount] = useState(initialState?.medicineCount ?? 0);
-    const [dayNightCycle, setDayNightCycle] = useState<{ phase: 'day' | 'night', timer: number }>({ phase: 'day', timer: 600 }); // 10 mins day
+    // Night cycle removed based on user request
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            // Day/Night Cycle Logic
-            setDayNightCycle((prev: { phase: 'day' | 'night', timer: number }) => {
-                const newTimer = prev.timer - 1;
-                if (newTimer <= 0) {
-                    return {
-                        phase: prev.phase === 'day' ? 'night' : 'day',
-                        timer: prev.phase === 'day' ? 300 : 600 // 5m night, 10m day
-                    };
-                }
-                return { ...prev, timer: newTimer };
-            });
-        }, 1000); // 1 sec interval
+        // Day/Night Logic Removed
 
         const degradationInterval = setInterval(() => {
             setPonds((prev: Ponds) => {
@@ -249,7 +237,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                         if (isCloseToInfected) {
                             return {
                                 ...target,
-                                stamina: Math.min(target.stamina ?? 100, 8), // Drop to 8% immediately
+                                stamina: Math.min(target.stamina ?? 100, 5), // Drop to 5% immediately
                                 sickTimestamp: now
                             };
                         }
@@ -269,12 +257,11 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
         }, 1000);
 
         return () => {
-            clearInterval(interval);
             clearInterval(degradationInterval);
         };
     }, [activePondId]);
 
-    const isNight = dayNightCycle.phase === 'night';
+    // const isNight = dayNightCycle.phase === 'night'; // Removed
     const pondBounds = useRef({ width: 100, height: 100 });
 
     const koiList = useMemo(() => ponds[activePondId]?.kois || [], [ponds, activePondId]);
@@ -617,7 +604,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
         feedAnimations,
         addDecoration,
         setPondTheme,
-        isNight: dayNightCycle.phase === 'night',
+        isNight: false,
         resetPonds,
         handleFoodEaten,
         spawnKoi,

@@ -144,8 +144,11 @@ export const App: React.FC = () => {
     }
   }, [notification]);
 
+  // Ref to hold latest state for periodic saving
+  const gameStateRef = useRef<SavedGameState | null>(null);
+
   useEffect(() => {
-    const stateToSave: SavedGameState = {
+    gameStateRef.current = {
       ponds,
       activePondId,
       zenPoints,
@@ -153,12 +156,22 @@ export const App: React.FC = () => {
       cornCount,
       koiNameCounter,
     };
-    try {
-      localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(stateToSave));
-    } catch (error) {
-      console.error("Failed to save game state:", error);
-    }
   }, [ponds, activePondId, zenPoints, foodCount, cornCount, koiNameCounter]);
+
+  // Periodic Save (Every 5 seconds) to prevent excessive writes
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      if (gameStateRef.current) {
+        try {
+          localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(gameStateRef.current));
+        } catch (error) {
+          console.error("Failed to save game state:", error);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(saveInterval);
+  }, []);
 
   const handleCleanPond = () => {
     const activePond = ponds[activePondId];
@@ -528,7 +541,10 @@ export const App: React.FC = () => {
             feedAnimations={feedAnimations}
             foodDropAnimations={foodDropAnimations}
             foodPellets={foodPellets}
-            onFoodEaten={handleFoodEaten}
+            onFoodEaten={(...args) => {
+              audioManager.playSFX('eat');
+              handleFoodEaten(...args);
+            }}
             isNight={isNight}
             waterQuality={waterQuality}
           />
@@ -554,7 +570,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-4 z-20 flex flex-col gap-2">
         <div className="bg-gray-900/60 backdrop-blur-sm p-3 rounded-lg border border-gray-700/50">
           <p className="text-xl font-bold text-yellow-300">{zenPoints.toLocaleString()} ZP</p>
         </div>
@@ -572,7 +588,7 @@ export const App: React.FC = () => {
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 z-20 flex items-center gap-2">
         <button
           onClick={() => setIsSaveLoadModalOpen(true)}
           className="bg-gray-900/40 backdrop-blur-sm p-3 rounded-full border border-white/10 text-white hover:text-yellow-400 transition-colors hover:bg-gray-800/60 hover:border-white/20"

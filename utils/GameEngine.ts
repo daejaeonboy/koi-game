@@ -36,7 +36,7 @@ export class GameEngine {
     private kois: Map<string, KoiEntity> = new Map();
     private foods: Map<number, FoodEntity> = new Map();
     private decorations: Decoration[] = [];
-    private theme: PondTheme = PondTheme.NIGHT; // Locked to Night
+    private theme: PondTheme = PondTheme.DEFAULT; // Default to Day
     private isNight: boolean = false;
     private waterEffects: WaterEffects;
     private waterQuality: number = 100; // Default 100
@@ -494,7 +494,7 @@ export class GameEngine {
 
             // Stamina-based speed modifier
             const stamina = entity.data.stamina ?? 100;
-            if (stamina <= 10) {
+            if (stamina <= 5) {
                 currentSpeed *= 0.35; // Slow but not crawling at critical stamina
             } else if (stamina <= 40) {
                 currentSpeed *= 0.5; // Half speed at low stamina

@@ -100,15 +100,19 @@ export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, the
       engineRef.current = new GameEngine(canvasRef.current);
       engineRef.current.start();
     }
-    if (engineRef.current) {
-      engineRef.current.onFoodEaten = onFoodEaten;
-    }
     return () => {
       if (engineRef.current) {
         engineRef.current.stop();
         engineRef.current = null;
       }
     };
+  }, []);
+
+  // Update Callback
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.onFoodEaten = onFoodEaten;
+    }
   }, [onFoodEaten]);
 
   // Sync Data with Engine

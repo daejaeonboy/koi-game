@@ -93,7 +93,7 @@ export const audioManager = {
         }
     },
 
-    playSFX: (type: 'plop' | 'coin' | 'breed' | 'click' | 'purchase') => {
+    playSFX: (type: 'plop' | 'coin' | 'breed' | 'click' | 'purchase' | 'eat') => {
         const ctx = initAudio();
         if (!ctx || !sfxGainNode) return;
 
@@ -106,6 +106,17 @@ export const audioManager = {
         const now = ctx.currentTime;
 
         switch (type) {
+            case 'eat':
+                // Cute Pop / Munch sound
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+                break;
+
             case 'plop':
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(300, now);

@@ -13,7 +13,7 @@ import { AccountModal } from './components/AccountModal';
 import { useKoiPond } from './hooks/useKoiPond';
 import { Koi, GeneType, KoiGenetics, GrowthStage, Ponds, Decoration, DecorationType, PondTheme, SavedGameState } from './types';
 import { breedKoi, calculateKoiValue, getPhenotype, GENE_COLOR_MAP, getDisplayColor } from './utils/genetics';
-import { Info, Store, X, Dna, DollarSign, Wheat, Volume2, VolumeX, Save, RotateCcw, ShoppingCart, Upload, Menu, Palette, Droplets, Trophy, Settings, User } from 'lucide-react';
+import { Wheat, DollarSign, ShoppingCart, Dna, Settings, User, X } from 'lucide-react';
 import { audioManager } from './utils/audio';
 import { ThemeModal } from './components/ThemeModal';
 import { CleanConfirmModal } from './components/CleanConfirmModal';
@@ -27,13 +27,14 @@ import { saveGameToCloud, loadGameFromCloud } from './services/sync';
 import { SessionConflictModal } from './components/SessionConflictModal';
 import { APDisplay } from './components/APDisplay';
 import { AdRewardModal } from './components/AdRewardModal';
-import { AdType, getAdReward } from './services/ads';
+import { AdType, getAdReward, initializeAdMob, showRewardAd } from './services/ads';
 import { listenToAPBalance } from './services/points';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './services/firebase';
 import { MarketplaceModal } from './components/MarketplaceModal';
 import { CreateListingModal } from './components/CreateListingModal';
 import { ListingDetailModal } from './components/ListingDetailModal';
+import { MedicineConfirmModal } from './components/MedicineConfirmModal';
 import { MarketplaceListing } from './types';
 import { FORCE_CLEAR_KEY, SAVE_GAME_KEY, clearLocalGameSaves, suppressLocalGameSave } from './services/localSave';
 import { ensureUserProfileNickname, updateUserNickname } from './services/profile';
@@ -52,7 +53,7 @@ const FOOD_PACK_AMOUNT = 50;
 const CORN_PACK_PRICE = 500; // Premium food
 const CORN_PACK_AMOUNT = 20; // Fewer quantity but 3x effect
 const MEDICINE_PRICE = 3000;
-const CLEANING_COST = 1000;
+const CLEANING_COST = 100;
 
 const loadGameState = (): SavedGameState | null => {
   try {
@@ -113,6 +114,7 @@ export const App: React.FC = () => {
   const [activeKoi, setActiveKoi] = useState<Koi | null>(null);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isCleanConfirmOpen, setIsCleanConfirmOpen] = useState(false);
+  const [isMedicineConfirmOpen, setIsMedicineConfirmOpen] = useState(false);
   const [isRankingModalOpen, setIsRankingModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
@@ -191,6 +193,11 @@ export const App: React.FC = () => {
   }, []);
 
   // --- Effects for New Features ---
+
+  // Initialize AdMob
+  useEffect(() => {
+    initializeAdMob();
+  }, []);
 
   // Auth check
   useEffect(() => {
@@ -361,48 +368,48 @@ export const App: React.FC = () => {
     }
 
     setIsWatchingAd(true);
-    setAdWatchProgress(0);
+    setAdWatchProgress(0); // Not used anymore but kept state
 
-    const duration = adType === '15sec' ? 15000 : 30000;
-    const intervalMs = 100;
-    let elapsed = 0;
-
-    const progressInterval = setInterval(() => {
-      elapsed += intervalMs;
-      setAdWatchProgress((elapsed / duration) * 100);
-    }, intervalMs);
-
-    // Wait for ad duration (mock)
-    await new Promise(resolve => setTimeout(resolve, duration));
-
-    clearInterval(progressInterval);
-    setIsWatchingAd(false);
-    setAdWatchProgress(0);
-
-    // Award AP
-    const reward = getAdReward(adType);
     try {
-      const callable = httpsCallable(functions, 'rewardAdPoints');
-      const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
-      await callable({
-        adType: adType === '15sec' ? '15s' : '30s',
-        verificationToken,
-      });
-      setNotification({ message: `+${reward} AP 획득!`, type: 'success' });
-    } catch (error) {
-      console.error('AP reward failed:', error);
-      setNotification({ message: 'AP 지급 실패', type: 'error' });
-    }
+      // Show real ad
+      const success = await showRewardAd();
 
-    setIsAdModalOpen(false);
+      setIsWatchingAd(false);
+
+      if (success) {
+        // Award AP
+        // For now, regardless of button clicked (15s/30s), we give a standard reward or based on adType if passed properly
+        // To support old logic in Cloud Functions, we might map 'reward' back to '30s' or just '15s'
+        const rewardAmount = 500; // Fixed high reward for real ads for now
+
+        const callable = httpsCallable(functions, 'rewardAdPoints');
+        const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
+
+        await callable({
+          adType: '30s', // Generic high reward
+          verificationToken,
+        });
+
+        setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
+      } else {
+        // Using alert might be too intrusive, notification is better or just silent if user closed
+        // setNotification({ message: '광고 시청이 완료되지 않았습니다.', type: 'info' });
+      }
+    } catch (error) {
+      console.error('Ad watch failed:', error);
+      setIsWatchingAd(false);
+      setNotification({ message: '광고 로드 실패', type: 'error' });
+    }
   };
+
 
   // Marketplace Handlers
   const handleRenameKoi = (koiId: string, nextName: string) => {
     renameKoi(koiId, nextName);
   };
 
-  const handleListingCreated = () => {
+  const handleListingCreated = (koiId: string) => {
+    removeKoi(koiId);
     setMarketplaceRefreshKey(prev => prev + 1);
     setNotification({ message: '잉어를 장터에 등록했습니다!', type: 'success' });
   };
@@ -417,7 +424,8 @@ export const App: React.FC = () => {
     audioManager.playSFX('purchase');
   };
 
-  const handleCancelSuccess = () => {
+  const handleCancelSuccess = (koi: Koi) => {
+    addKois([koi]);
     setMarketplaceRefreshKey(prev => prev + 1);
     setSelectedListing(null);
     setNotification({ message: '판매 등록을 취소했습니다.', type: 'info' });
@@ -433,16 +441,26 @@ export const App: React.FC = () => {
   };
 
   const confirmCleanPond = () => {
-    if (zenPoints < CLEANING_COST) {
-      setNotification({ message: `젠 포인트가 부족합니다! (${CLEANING_COST.toLocaleString()} P)`, type: 'error' });
+    if (adPoints < CLEANING_COST) {
+      setNotification({ message: `AP가 부족합니다! (${CLEANING_COST.toLocaleString()} AP 필요)`, type: 'error' });
       setIsCleanConfirmOpen(false);
       return;
     }
-    setZenPoints(p => p - CLEANING_COST);
+    setAdPoints(p => p - CLEANING_COST);
     audioManager.playSFX('click');
     cleanPond();
     setNotification({ message: '연못을 청소했습니다!', type: 'success' });
     setIsCleanConfirmOpen(false);
+  };
+
+  const confirmUseMedicine = () => {
+    if ((medicineCount || 0) <= 0) return;
+
+    cureAllKoi();
+    setMedicineCount(c => Math.max(0, (c || 0) - 1));
+    audioManager.playSFX('purchase');
+    setNotification({ message: `모든 코이에게 치료제를 사용했습니다.`, type: 'success' });
+    setIsMedicineConfirmOpen(false);
   };
 
   const handleNewGame = async (): Promise<boolean> => {
@@ -572,7 +590,7 @@ export const App: React.FC = () => {
     const newKois: Koi[] = [];
     let currentCounter = koiNameCounter;
 
-    const offspringCount = Math.floor(Math.random() * 3) + 3; // 3 to 5
+    const offspringCount = Math.floor(Math.random() * 2) + 2; // 2 to 3
     for (let i = 0; i < offspringCount; i++) {
       const breedResult = breedKoi(parent1.genetics, parent2.genetics);
       const newKoi: Koi = {
@@ -622,8 +640,8 @@ export const App: React.FC = () => {
     const newGenetics: KoiGenetics = {
       baseColorGenes: genes,
       spots: [],
-      lightness: 50, // Special morphs have a default lightness, though it won't be visible
-      saturation: 50,
+      lightness: 50, // User Request: Force 50 (Standard)
+      saturation: 50, // User Request: Force 50 (Standard)
     };
 
     const newKoi: Koi = {
@@ -743,16 +761,12 @@ export const App: React.FC = () => {
       if (selectedFoodType === 'medicine') {
         // Medicine Logic (Global Cure)
         // Can be triggered by clicking anywhere (pond or fish)
+        // Apply Global Cure -> Open Confirm Modal
         if ((medicineCount || 0) <= 0) {
           setNotification({ message: '치료제가 없습니다!', type: 'error' });
           return;
         }
-
-        // Apply Global Cure
-        cureAllKoi();
-        setMedicineCount(c => Math.max(0, (c || 0) - 1));
-        audioManager.playSFX('purchase');
-        setNotification({ message: `모든 코이에게 치료제를 사용했습니다.`, type: 'success' });
+        setIsMedicineConfirmOpen(true);
 
         // Optional: Reset mode after use? Or keep it? Keeping it allows spamming if needed (though global cures all).
         // Since it's global and costs money, maybe safer to reset? But user might have multiple bottles.
@@ -779,7 +793,7 @@ export const App: React.FC = () => {
           const x = ((event.clientX - pondRect.left) / pondRect.width) * 100;
           const y = ((event.clientY - pondRect.top) / pondRect.height) * 100;
 
-          const feedAmount = useCorn ? 3 : 1;
+          const feedAmount = useCorn ? 2 : 1;
           dropFood({ x, y }, feedAmount);
 
           const dropAnimId = Date.now();
@@ -886,8 +900,8 @@ export const App: React.FC = () => {
       }
 
       <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-4 z-20 flex flex-col gap-2">
-        <div className="bg-gray-900/60 backdrop-blur-sm p-3 rounded-lg border border-gray-700/50">
-          <p className="text-xl font-bold text-yellow-300">{zenPoints.toLocaleString()} ZP</p>
+        <div className="bg-gray-900/60 backdrop-blur-sm p-3 rounded-lg border border-gray-700/50 min-w-[140px]">
+          <p className="text-lg font-bold text-yellow-300">{zenPoints.toLocaleString()} ZP</p>
         </div>
 
         {/* Ad Point Display */}
@@ -896,15 +910,20 @@ export const App: React.FC = () => {
           onAdClick={() => setIsAdModalOpen(true)}
         />
 
-        {/* Water Quality Indicator - Read Only */}
-        <div className="bg-gray-900/60 backdrop-blur-sm p-2 rounded-lg border border-gray-700/50 flex items-center gap-2 cursor-default select-none pointer-events-none">
-          <Droplets size={18} className={`${waterQuality < 50 ? 'text-red-400 animate-pulse' : 'text-blue-400'}`} />
+        {/* Water Quality Indicator - Interactive */}
+        <div className="bg-gray-900/60 backdrop-blur-sm p-3 rounded-lg border border-gray-700/50 flex items-center gap-2 min-w-[140px]">
           <div className="flex flex-col items-start leading-none">
             <span className="text-[10px] text-gray-400">수질</span>
             <span className={`text-sm font-bold ${waterQuality < 50 ? 'text-red-400' : 'text-white'}`}>
               {Math.round(waterQuality)}%
             </span>
           </div>
+          <button
+            onClick={handleCleanPond}
+            className="ml-auto text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 py-1 rounded transition-colors"
+          >
+            + 청소
+          </button>
         </div>
       </div>
 
@@ -1009,7 +1028,6 @@ export const App: React.FC = () => {
           audioManager.playSFX('click');
           setIsPondInfoModalOpen(true);
         }}
-        onCleanPond={handleCleanPond}
         onThemeClick={() => {
           audioManager.playSFX('click');
           setIsThemeModalOpen(true);
@@ -1028,6 +1046,16 @@ export const App: React.FC = () => {
           setIsRankingModalOpen(true);
         }}
       />
+
+      {
+        isMedicineConfirmOpen && (
+          <MedicineConfirmModal
+            onClose={() => setIsMedicineConfirmOpen(false)}
+            onConfirm={confirmUseMedicine}
+            currentCount={medicineCount}
+          />
+        )
+      }
 
       {
         isShopModalOpen && (
@@ -1065,7 +1093,7 @@ export const App: React.FC = () => {
             onClose={() => setIsCleanConfirmOpen(false)}
             onConfirm={confirmCleanPond}
             cost={CLEANING_COST}
-            zenPoints={zenPoints}
+            adPoints={adPoints}
           />
         )
       }
@@ -1181,7 +1209,13 @@ export const App: React.FC = () => {
         userAP={adPoints}
         refreshKey={marketplaceRefreshKey}
         onSelectListing={setSelectedListing}
-        onCreateListingClick={() => setIsCreateListingOpen(true)}
+        onCreateListingClick={(count) => {
+          if (count >= 4) {
+            setNotification({ message: '장터에는 최대 4마리까지만 등록할 수 있습니다.', type: 'error' });
+            return;
+          }
+          setIsCreateListingOpen(true);
+        }}
       />
 
       {
@@ -1241,38 +1275,41 @@ export const App: React.FC = () => {
       />
 
       {/* Spot Genetics Debug Panel - shows first selected koi's genes */}
-      <SpotGeneticsDebugPanel
-        koi={selectedKoisForBreeding[0] || null}
-        zenPoints={zenPoints}
-        onSetZenPoints={(points) => setZenPoints(points)}
-        onSpawnKoi={(genetics, growthStage) => {
-          // Create new koi with custom genetics and growth stage
-          const newKoi: Koi = {
-            id: crypto.randomUUID(),
-            name: `코이`,
-            description: '디버그 패널에서 생성된 코이입니다.',
-            genetics: {
-              baseColorGenes: genetics.baseColorGenes || [GeneType.CREAM, GeneType.CREAM],
-              spots: genetics.spots || [],
-              lightness: genetics.lightness ?? 50,
-              saturation: genetics.saturation ?? 50,
+      {/* Spot Genetics Debug Panel - shows first selected koi's genes */}
+      {import.meta.env.DEV && (
+        <SpotGeneticsDebugPanel
+          koi={selectedKoisForBreeding[0] || null}
+          zenPoints={zenPoints}
+          onSetZenPoints={(points) => setZenPoints(points)}
+          onSpawnKoi={(genetics, growthStage) => {
+            // Create new koi with custom genetics and growth stage
+            const newKoi: Koi = {
+              id: crypto.randomUUID(),
+              name: `코이`,
+              description: '디버그 패널에서 생성된 코이입니다.',
+              genetics: {
+                baseColorGenes: genetics.baseColorGenes || [GeneType.CREAM, GeneType.CREAM],
+                spots: genetics.spots || [],
+                lightness: genetics.lightness ?? 50,
+                saturation: genetics.saturation ?? 50,
 
-              spotPhenotypeGenes: genetics.spotPhenotypeGenes,
-            },
-            position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
-            velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
-            age: growthStage === GrowthStage.FRY ? 0 : (growthStage === GrowthStage.JUVENILE ? 50 : 100),
-            growthStage: growthStage || GrowthStage.FRY,
-            timesFed: 0,
-            foodTargetId: null,
-            feedCooldownUntil: null,
-            stamina: 100,
-          };
-          addKois([newKoi]);
-          setNotification({ message: '새로운 코이가 생성되었습니다.', type: 'success' });
-        }}
-        onUpdateKoi={handleUpdateKoi}
-      />
+                spotPhenotypeGenes: genetics.spotPhenotypeGenes,
+              },
+              position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
+              velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
+              age: growthStage === GrowthStage.FRY ? 0 : (growthStage === GrowthStage.JUVENILE ? 50 : 100),
+              growthStage: growthStage || GrowthStage.FRY,
+              timesFed: 0,
+              foodTargetId: null,
+              feedCooldownUntil: null,
+              stamina: 100,
+            };
+            addKois([newKoi]);
+            setNotification({ message: '새로운 코이가 생성되었습니다.', type: 'success' });
+          }}
+          onUpdateKoi={handleUpdateKoi}
+        />
+      )}
 
       <RankingModal
         isOpen={isRankingModalOpen}

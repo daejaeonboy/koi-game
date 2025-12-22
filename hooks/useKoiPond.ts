@@ -339,8 +339,8 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                 genetics: {
                     baseColorGenes: [color, color], // Homozygous to ensure expression
                     spots: initialSpots,
-                    lightness: 50,
-                    saturation: 50,
+                    lightness: 50, // User Request: Force 50 (Standard)
+                    saturation: 50, // User Request: Force 50 (Standard)
                 },
                 position: { x: 50, y: 50 }, // Center spawn
                 velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },

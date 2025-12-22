@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { X, Palette, Sun, Sparkles, Fish, Dna, DollarSign, Zap, Search, Pencil, Check } from 'lucide-react';
-import { Koi, Ponds, PondData, GeneType, GrowthStage } from '../types';
+import { X, Palette, Sun, Sparkles, Fish, Dna, DollarSign, Search, Pencil, Check } from 'lucide-react';
+import { Koi, Ponds, PondData, GeneType, GrowthStage, SpotPhenotype } from '../types';
 import { calculateKoiValue, calculateRarityScore, GENE_COLOR_MAP, getPhenotype, GENE_RARITY, getDisplayColor, calculateSpotPhenotype } from '../utils/genetics';
 import { KoiCSSPreview } from './KoiCSSPreview';
 
@@ -146,11 +146,11 @@ const KoiListItem: React.FC<{
             <span className="text-xs bg-gray-800 px-1.5 py-0.5 rounded border border-gray-600 text-gray-400">
               {koi.growthStage === 'adult' ? '성체' : koi.growthStage === 'juvenile' ? '준성체' : '치어'}
             </span>
-            {(koi.stamina ?? 0) <= 5 && (
+            {(koi.stamina ?? 0) <= 5 || koi.sickTimestamp ? (
               <span className="text-xs bg-red-900/50 px-1.5 py-0.5 rounded border border-red-500/50 text-red-400 font-bold animate-pulse">
                 병듦
               </span>
-            )}
+            ) : null}
           </div>
           <span className="text-xs font-mono text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded border border-yellow-400/30">
             {value} ZP
@@ -169,7 +169,7 @@ const KoiListItem: React.FC<{
             <span className="ml-auto text-yellow-400">체력: {Math.round(koi.stamina ?? 0)}</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="font-bold text-gray-500">[무늬]</span>
+            <span className="font-bold text-gray-500">[점]</span>
             <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
             <span>선명도: <span className="text-purple-300">{((1 - spotPhenotype.edgeBlur) * 100).toFixed(0)}%</span></span>
           </div>
@@ -206,7 +206,7 @@ interface PondInfoModalProps {
   onRenameKoi: (koiId: string, nextName: string) => void;
 }
 
-type SortOption = 'default' | 'spots_desc' | 'lightness_desc' | 'lightness_asc';
+type SortOption = 'default' | 'spots_desc' | 'body_lightness_desc' | 'body_saturation_desc' | 'spot_saturation_desc' | 'spot_clarity_desc';
 
 export const PondInfoModal: React.FC<PondInfoModalProps> = ({
   onClose,
@@ -233,10 +233,27 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
     switch (sortOption) {
       case 'spots_desc':
         return sorted.sort((a, b) => b.genetics.spots.length - a.genetics.spots.length);
-      case 'lightness_desc':
+      case 'body_lightness_desc':
         return sorted.sort((a, b) => b.genetics.lightness - a.genetics.lightness);
-      case 'lightness_asc':
-        return sorted.sort((a, b) => a.genetics.lightness - b.genetics.lightness);
+      case 'body_saturation_desc':
+        return sorted.sort((a, b) => b.genetics.saturation - a.genetics.saturation);
+      case 'spot_saturation_desc':
+        return sorted.sort((a, b) => {
+          const phenoA = calculateSpotPhenotype(a.genetics.spotPhenotypeGenes, a);
+          const phenoB = calculateSpotPhenotype(b.genetics.spotPhenotypeGenes, b);
+          return phenoB.colorSaturation - phenoA.colorSaturation;
+        });
+      case 'spot_clarity_desc':
+        return sorted.sort((a, b) => {
+          // Clarity = 1 - edgeBlur. Higher clarity means lower edgeBlur.
+          // We want higher clarity first.
+          // A clarity: 1 - A.edgeBlur
+          // B clarity: 1 - B.edgeBlur
+          // Sort: B - A => (1 - B.blur) - (1 - A.blur) = A.blur - B.blur
+          const phenoA = calculateSpotPhenotype(a.genetics.spotPhenotypeGenes, a);
+          const phenoB = calculateSpotPhenotype(b.genetics.spotPhenotypeGenes, b);
+          return (1 - phenoB.edgeBlur) - (1 - phenoA.edgeBlur);
+        });
       default:
         return sorted;
     }
@@ -334,11 +351,17 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
             <button onClick={() => handleSort('spots_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'spots_desc' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
               점 개수
             </button>
-            <button onClick={() => handleSort('lightness_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'lightness_desc' ? 'bg-gray-200 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
-              밝은 순
+            <button onClick={() => handleSort('body_lightness_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'body_lightness_desc' ? 'bg-pink-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+              몸 명도 순
             </button>
-            <button onClick={() => handleSort('lightness_asc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'lightness_asc' ? 'bg-gray-900 text-white border border-gray-600' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
-              어두운 순
+            <button onClick={() => handleSort('body_saturation_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'body_saturation_desc' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+              몸 채도 순
+            </button>
+            <button onClick={() => handleSort('spot_saturation_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'spot_saturation_desc' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+              점 채도 순
+            </button>
+            <button onClick={() => handleSort('spot_clarity_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'spot_clarity_desc' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+              점 선명도 순
             </button>
           </div>
 
@@ -403,4 +426,3 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
     </div>
   );
 };
-

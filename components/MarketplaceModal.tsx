@@ -11,7 +11,7 @@ interface MarketplaceModalProps {
     currentUserId?: string; // To identify own listings
     refreshKey?: number; // 판매 등록 직후 강제 갱신 트리거
     onSelectListing: (listing: MarketplaceListing) => void;
-    onCreateListingClick: () => void;
+    onCreateListingClick: (currentCount: number) => void;
     userAP: number;
 }
 
@@ -118,7 +118,10 @@ export const MarketplaceModal: React.FC<MarketplaceModalProps> = ({
                     <div className="flex-grow"></div>
 
                     <button
-                        onClick={onCreateListingClick}
+                        onClick={() => {
+                            const myCount = listings.filter(l => l.sellerId === currentUserId).length;
+                            onCreateListingClick(myCount);
+                        }}
                         className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg hover:shadow-purple-500/30 transition-all hover:scale-105 flex items-center gap-2"
                     >
                         <Plus size={16} /> 판매 등록

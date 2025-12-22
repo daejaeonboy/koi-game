@@ -13,7 +13,7 @@ interface ListingDetailModalProps {
     userNickname: string;
     userAP: number;
     onBuySuccess: (koi?: Koi) => void;
-    onCancelSuccess: () => void;
+    onCancelSuccess: (koi: Koi) => void;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -80,7 +80,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
         setNotice(null);
         try {
             await cancelListing(liveListing.id);
-            onCancelSuccess();
+            onCancelSuccess(liveListing.koiData);
             onClose();
         } catch (e) {
             setError("취소 실패");

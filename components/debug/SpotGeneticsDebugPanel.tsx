@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Koi, SpotPhenotypeGenes, GeneAlleles, DominanceType, GeneType, GrowthStage, KoiGenetics, Spot, SpotShape } from '../../types';
-import { expressGene, calculateSpotPhenotype, GENE_COLOR_MAP } from '../../utils/genetics';
+import { expressGene, calculateSpotPhenotype, GENE_COLOR_MAP, breedKoi, getPhenotype } from '../../utils/genetics';
 import { getDebugConfig } from '../../config';
 
 interface SpotGeneticsDebugPanelProps {
@@ -56,6 +56,14 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
         GENE_IDS.forEach(id => { initial[id] = 50; }); // Start at 50%
         return initial;
     });
+
+    // Sim Results State
+    const [simResults, setSimResults] = useState<{
+        total: number;
+        albinoCount: number;
+        mutationCount: number;
+        colorCounts: Record<string, number>;
+    } | null>(null);
 
     // Dragging state
     const [pos, setPos] = useState({ top: 8, right: 8 });
@@ -235,6 +243,45 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
         if (baseColorGenes.length > 2) {
             setBaseColorGenes(prev => prev.filter((_, i) => i !== index));
         }
+    };
+
+    const handleSimulateBreeding = () => {
+        const parentGenetics: KoiGenetics = {
+            baseColorGenes,
+            spots,
+            lightness,
+            saturation,
+            spotPhenotypeGenes: createGenesFromCustom(),
+            albinoAlleles: isAlbino ? [true, true] : [false, false],
+        };
+
+        const results = {
+            total: 100,
+            albinoCount: 0,
+            mutationCount: 0,
+            colorCounts: {} as Record<string, number>,
+        };
+
+        for (let i = 0; i < 100; i++) {
+            // Self-breeding for testing recessive traits visibility
+            const { genetics: child, mutations } = breedKoi(parentGenetics, parentGenetics);
+
+            // Check Albino
+            if (child.albinoAlleles && child.albinoAlleles[0] && child.albinoAlleles[1]) {
+                results.albinoCount++;
+            }
+
+            // Check Mutations
+            if (mutations.length > 0) {
+                results.mutationCount++;
+            }
+
+            // Check Phenotype
+            const phenotype = getPhenotype(child.baseColorGenes);
+            results.colorCounts[phenotype] = (results.colorCounts[phenotype] || 0) + 1;
+        }
+
+        setSimResults(results);
     };
 
     return (
@@ -581,6 +628,44 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
                                 </div>
                             ))}
                         </div>
+                    </div>
+
+                    {/* BREEDING SIMULATOR */}
+                    <div className="border-t border-gray-700 pt-2 mb-3">
+                        <h5 className="text-xs text-purple-400 mb-2">🧬 자가 교배 시뮬레이션 (100회)</h5>
+                        <button
+                            onClick={handleSimulateBreeding}
+                            className="w-full bg-purple-600 hover:bg-purple-500 text-white py-1.5 rounded text-xs font-bold mb-2"
+                        >
+                            ▶️ 시뮬레이션 실행 (현재 유전자 x 현재 유전자)
+                        </button>
+
+                        {simResults && (
+                            <div className="bg-gray-800 p-2 rounded border border-gray-600 text-xs">
+                                <div className="flex justify-between mb-1">
+                                    <span className="text-gray-400">알비노 발생:</span>
+                                    <span className={simResults.albinoCount > 0 ? "text-pink-300 font-bold" : "text-gray-500"}>
+                                        {simResults.albinoCount}마리 ({simResults.albinoCount}%)
+                                    </span>
+                                </div>
+                                <div className="flex justify-between mb-1">
+                                    <span className="text-gray-400">돌연변이 감지:</span>
+                                    <span className={simResults.mutationCount > 0 ? "text-yellow-300 font-bold" : "text-gray-500"}>
+                                        {simResults.mutationCount}회
+                                    </span>
+                                </div>
+                                <div className="border-t border-gray-600 mt-1 pt-1">
+                                    <div className="text-gray-500 mb-1">색상 발현 분포:</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {Object.entries(simResults.colorCounts).map(([color, count]) => (
+                                            <span key={color} className="px-1.5 py-0.5 rounded bg-gray-700 border border-gray-500" style={{ color: GENE_COLOR_MAP[color as GeneType] }}>
+                                                {color}: {count}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Action Buttons */}

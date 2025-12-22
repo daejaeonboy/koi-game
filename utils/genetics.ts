@@ -158,12 +158,19 @@ export const calculateKoiValue = (koi: Koi): number => {
     return Math.floor(value);
 };
 
-const SPOT_COLOR_MUTATION_CHANCE = 0.05;
+const SPOT_COLOR_MUTATION_CHANCE = 0.01;
 const SIZE_MUTATION_AMOUNT = 5; // Variation in spot size during breeding (Not related to koi size)
 const LIGHTNESS_MUTATION_CHANCE = 0.2;
 const LIGHTNESS_MUTATION_AMOUNT = 5;
-const BASE_COLOR_MUTATION_CHANCE = 0.01;
+const BASE_COLOR_MUTATION_CHANCE = 0.005;
 const SPECIAL_MUTATION_CHANCE = 0;
+
+const getSpotSizeRange = (shape: SpotShape): { min: number, max: number } => {
+    if (shape === SpotShape.CIRCLE || shape === SpotShape.HEXAGON) {
+        return { min: 30, max: 80 };
+    }
+    return { min: 30, max: 60 };
+};
 
 const createNewRandomSpot = (preferredColor?: GeneType): Spot => {
     const shapeValues = Object.values(SpotShape);
@@ -174,10 +181,12 @@ const createNewRandomSpot = (preferredColor?: GeneType): Spot => {
         color = getRandomTraitWithRarity(ALL_SPOT_COLORS, GENE_RARITY);
     }
 
+    const { min, max } = getSpotSizeRange(shape);
+
     return {
         x: Math.random() * 100,
         y: Math.random() * 100,
-        size: Math.random() * 50 + 40, // 40-90% of body width
+        size: Math.random() * (max - min) + min,
         color: color,
         shape: shape,
     };
@@ -217,33 +226,23 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
     let gamete1 = getGamete(genetics1.baseColorGenes);
     let gamete2 = getGamete(genetics2.baseColorGenes);
 
-    gamete1 = gamete1.map(g => {
-        if (Math.random() < BASE_COLOR_MUTATION_CHANCE) {
-            const m = getRandomTraitWithRarity(RECESSIVE_COLORS, GENE_RARITY);
-            mutations.push(m);
-            return m;
-        }
-        return g;
-    });
-    gamete2 = gamete2.map(g => {
-        if (Math.random() < BASE_COLOR_MUTATION_CHANCE) {
-            const m = getRandomTraitWithRarity(RECESSIVE_COLORS, GENE_RARITY);
-            mutations.push(m);
-            return m;
-        }
-        return g;
-    });
+    // Default inheritance
+    let childGenes = [...gamete1, ...gamete2].filter(g => g);
 
-    if (Math.random() < SPECIAL_MUTATION_CHANCE) {
-        const m = getRandomTraitWithRarity(SPECIAL_COLORS, GENE_RARITY);
-        gamete1[0] = m;
-        mutations.push(m);
-        if (Math.random() < 0.1) {
-            gamete2[0] = m;
-        }
+    // Mutation Logic: Force Expression
+    // User Request: "Mutations should be visible immediately (e.g. Orange/Orange)"
+    if (Math.random() < BASE_COLOR_MUTATION_CHANCE) {
+        const mutationColor = getRandomTraitWithRarity(RECESSIVE_COLORS, GENE_RARITY);
+        // Force Homozygous to ensure expression (overrides inheritance)
+        childGenes = [mutationColor, mutationColor];
+        mutations.push(mutationColor);
     }
 
-    const childGenes = [...gamete1, ...gamete2].filter(g => g);
+    // Check Special Mutation (if enabled)
+    if (Math.random() < SPECIAL_MUTATION_CHANCE) {
+        // ... existing logic if kept, but generally overriding is better for mutations
+        // For now, let's keep the base mutation as the primary "visible mutation" mechanism.
+    }
 
     if (childGenes.length > 6 && Math.random() < GENE_DELETION_CHANCE) {
         childGenes.pop();
@@ -283,9 +282,25 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
     const baseCount = Math.random() < 0.5 ? maxSpots : blendedCount;
 
     const n = baseCount;
-    const addWeight = Math.exp(-n / 10);
-    const deleteWeight = 1 - Math.exp(-n / 10);
-    const keepWeight = Math.exp(-n / 20);
+
+    // User Request:
+    // 1. Add probability reduced ~10x (Target ~5% at base)
+    // 2. Step-wise difficulty increase at 4, 8, 12, 16... (4의 배수)
+    // 3. Keep probability increased
+
+    const tier = Math.floor(n / 4);
+
+    // Base weight 0.05 (approx 5% against keep=1.0)
+    // Halves every 4 spots
+    const addWeight = 0.05 * Math.pow(0.5, tier);
+
+    // Delete Weight: Fixed at ~30% probability (0.45 vs 1.0 keep)
+    // User Request: "Enable deletion for <= 4 spots, target ~30% deletion chance everywhere"
+    const deleteWeight = 0.45;
+
+    // Keep is dominant
+    const keepWeight = 1.0;
+
     const totalWeight = addWeight + deleteWeight + keepWeight;
 
     const roll = Math.random() * totalWeight;
@@ -296,9 +311,20 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
         targetSpotsCount = Math.max(0, baseCount - 1);
     }
 
+    // Helper: Fisher-Yates Shuffle
+    const shuffleArray = <T>(array: T[]): T[] => {
+        const newArr = [...array];
+        for (let i = newArr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+        }
+        return newArr;
+    };
+
     const childSpots: Spot[] = [];
     if (combinedSpots.length > 0) {
-        const shuffled = combinedSpots.sort(() => 0.5 - Math.random());
+        // Use Fisher-Yates shuffle instead of sort for unbiased randomness
+        const shuffled = shuffleArray(combinedSpots);
         const maxParentSpots = Math.max(parent1Spots.length, parent2Spots.length);
         const inheritanceCount = Math.min(targetSpotsCount, maxParentSpots);
         const inheritedSpots = shuffled.slice(0, inheritanceCount);
@@ -308,27 +334,39 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
             if (Math.random() < SPOT_COLOR_MUTATION_CHANCE) {
                 newColor = getRandomTraitWithRarity(ALL_SPOT_COLORS, GENE_RARITY);
             }
+            let shape = spot.shape || Object.values(SpotShape)[Math.floor(Math.random() * 3)];
+            const { min, max } = getSpotSizeRange(shape);
+
+            // Position Inheritance with Jitter
+            // Instead of random position, keep parent position with slight variation (+/- 5%)
+            const POSITION_JITTER = 5;
+            const childX = Math.max(0, Math.min(100, spot.x + (Math.random() - 0.5) * POSITION_JITTER * 2));
+            const childY = Math.max(0, Math.min(100, spot.y + (Math.random() - 0.5) * POSITION_JITTER * 2));
+
             childSpots.push({
-                x: Math.random() * 100,
-                y: Math.random() * 100,
-                size: Math.max(40, Math.min(90, spot.size + (Math.random() - 0.5) * SIZE_MUTATION_AMOUNT * 2)),
+                x: childX,
+                y: childY,
+                size: Math.max(min, Math.min(max, spot.size + (Math.random() - 0.5) * SIZE_MUTATION_AMOUNT * 2)),
                 color: newColor,
-                shape: spot.shape || Object.values(SpotShape)[Math.floor(Math.random() * 3)],
+                shape: shape,
             });
         }
     }
 
-    const parentColors = Array.from(new Set(combinedSpots.map(s => s.color)));
+    // When creating new extra spots, sample from the entire population of parent spots
+    // to reflect the actual frequency of colors (Weighted inheritance)
+    const parentSpotPopulation = combinedSpots.length > 0
+        ? combinedSpots.map(s => s.color)
+        : [];
 
     while (childSpots.length < targetSpotsCount) {
         let nextColor: GeneType | undefined = undefined;
-        if (parentColors.length > 0 && Math.random() > SPOT_COLOR_MUTATION_CHANCE) {
-            nextColor = parentColors[Math.floor(Math.random() * parentColors.length)];
+        // Use population-based sampling instead of unique-color sampling
+        if (parentSpotPopulation.length > 0 && Math.random() > SPOT_COLOR_MUTATION_CHANCE) {
+            nextColor = parentSpotPopulation[Math.floor(Math.random() * parentSpotPopulation.length)];
         }
         childSpots.push(createNewRandomSpot(nextColor));
     }
-
-
 
     // 5. Create generational data
     let childGenerationalData: GenerationalData | undefined;
@@ -354,14 +392,22 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
         };
     }
 
-    // 6. Breed albino alleles (Recessive inheritance)
+    // 6. Breed albino alleles (Recessive inheritance + Mutation)
     let childAlbinoAlleles: [boolean, boolean] | undefined;
     const parent1Alleles = genetics1.albinoAlleles || [false, false];
     const parent2Alleles = genetics2.albinoAlleles || [false, false];
-    // Each parent passes one random allele
+
+    // Normal Inheritance
     const fromParent1 = parent1Alleles[Math.random() < 0.5 ? 0 : 1];
     const fromParent2 = parent2Alleles[Math.random() < 0.5 ? 0 : 1];
     childAlbinoAlleles = [fromParent1, fromParent2];
+
+    // Albino Mutation (User Request: Add Albino to mutations)
+    // Chance to spontaneously become Albino (Homozygous [true, true])
+    if (Math.random() < BASE_COLOR_MUTATION_CHANCE) { // Use same chance as color mutation
+        childAlbinoAlleles = [true, true];
+        // Note: Albino overrides base color rendering visually, handled in renderer
+    }
 
     return {
         genetics: {
@@ -472,8 +518,8 @@ export const getSpineColor = (phenotype: GeneType, lightness: number, saturation
 // ============================================
 
 const GENE_DOMINANCE_CONFIG: Record<keyof SpotPhenotypeGenes, DominanceType> = {
-    CS: DominanceType.COMPLETE,
-    EB: DominanceType.COMPLETE,
+    CS: DominanceType.INCOMPLETE,
+    EB: DominanceType.INCOMPLETE,
 };
 
 type SpotGeneId = keyof SpotPhenotypeGenes;
@@ -608,7 +654,14 @@ export const expressGene = (geneAlleles: GeneAlleles, geneId?: keyof SpotPhenoty
 };
 
 // Calculate final phenotype for rendering (converts internal 0-100 to 0-1)
-export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes, koi?: Koi): SpotPhenotype => {
+export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes | undefined, koi?: Koi): SpotPhenotype => {
+    if (!genes) {
+        return {
+            colorSaturation: 1.0,
+            edgeBlur: 0.0,
+            activeTraits: []
+        };
+    }
     const geneIds = Object.keys(genes) as (keyof SpotPhenotypeGenes)[];
     const expressed: Record<keyof SpotPhenotypeGenes, number> = {} as any;
 
@@ -697,6 +750,6 @@ export const breedSpotPhenotypeGenes = (parent1Genes: SpotPhenotypeGenes, parent
 };
 
 export const createDefaultSpotPhenotypeGenes = (): SpotPhenotypeGenes => ({
-    CS: { allele1: { value: 70, origin: 'maternal' }, allele2: { value: 70, origin: 'paternal' }, dominanceType: DominanceType.COMPLETE },
-    EB: { allele1: { value: 30, origin: 'maternal' }, allele2: { value: 30, origin: 'paternal' }, dominanceType: DominanceType.COMPLETE },
+    CS: { allele1: { value: 70, origin: 'maternal' }, allele2: { value: 70, origin: 'paternal' }, dominanceType: GENE_DOMINANCE_CONFIG.CS },
+    EB: { allele1: { value: 30, origin: 'maternal' }, allele2: { value: 30, origin: 'paternal' }, dominanceType: GENE_DOMINANCE_CONFIG.EB },
 });

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { Store, Fish, Sparkles, Pill, Palette, Globe, Trophy, Menu } from 'lucide-react';
-
-// ... (IconProps and Icons remain change if needed, checking below)
+import { Store, Fish, Pill, Palette, Globe, Trophy, Menu } from 'lucide-react';
 
 interface IconProps {
   size?: number;
@@ -55,7 +53,6 @@ interface ControlBarProps {
   selectedFoodType: 'normal' | 'corn' | 'medicine';
   onSelectFoodType: (type: 'normal' | 'corn' | 'medicine') => void;
   onPondInfoClick: () => void;
-  onCleanPond: () => void;
   onThemeClick: () => void;
   onMarketplaceClick: () => void;
   onRankingClick: () => void;
@@ -78,7 +75,6 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   selectedFoodType,
   onSelectFoodType,
   onPondInfoClick,
-  onCleanPond,
   onThemeClick,
   onMarketplaceClick,
   onRankingClick,
@@ -160,13 +156,15 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         </button>
       </div>
 
-      <button onClick={onCleanPond} className={getButtonClass(false)} aria-label="Clean pond">
-        <Sparkles size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
-      </button>
-
       <button onClick={onPondInfoClick} className={getButtonClass(false)} aria-label="Open pond info">
         <Fish size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
       </button>
+
+      {/* Image Preloader to prevent flicker/delay on first menu open */}
+      <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+        <img src="/feed.png" alt="preload" />
+        <img src="/corn.png" alt="preload" />
+      </div>
     </div>
   );
 };

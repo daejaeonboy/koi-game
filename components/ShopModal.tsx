@@ -172,7 +172,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                     <ShopItem
                         icon={<CornIcon size={40} className="text-yellow-300" />}
                         title="프리미엄 옥수수 (20개)"
-                        description="일반 먹이보다 3배 효과! 코이가 빠르게 성장합니다."
+                        description="일반 먹이보다 2배 효과! 코이가 빠르게 성장합니다."
                         price={CORN_PACK_PRICE}
                         onBuy={(q) => onBuyCorn(q)}
                         canAfford={(q) => zenPoints >= CORN_PACK_PRICE * q}
@@ -181,7 +181,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                     <ShopItem
                         icon={<Pill size={40} className="text-green-400" />}
                         title="치료제"
-                        description="병든 코이를 치료합니다. (개당)"
+                        description="병든 코이를 모두 치료합니다."
                         price={MEDICINE_PRICE}
                         onBuy={(q) => onBuyMedicine(q)}
                         canAfford={(q) => zenPoints >= MEDICINE_PRICE * q}

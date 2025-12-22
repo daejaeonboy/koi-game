@@ -77,11 +77,6 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
     const handleCancel = async () => {
         if (!isOwner) return;
 
-        if (liveListing.currentBidderId || (liveListing.bidCount ?? 0) > 0) {
-            setError("입찰자가 있는 경매는 취소할 수 없습니다.");
-            return;
-        }
-
         console.log('[Marketplace] Attempting to cancel listing:', liveListing.id);
         setIsProcessing(true);
         setError(null);
@@ -93,7 +88,10 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             onClose();
         } catch (e: any) {
             console.error('[Marketplace] Cancellation failed:', e);
-            const errorMessage = e?.message || "취소에 실패했습니다. (이미 거래가 진행 중이거나 서버 오류)";
+            // 즉시 구매 시스템이므로 취소 실패는 보통 이미 팔린 경우임
+            const errorMessage = e?.message?.includes('failed-precondition')
+                ? "취소할 수 없습니다. 이미 판매되었거나 활성화된 상태가 아닙니다."
+                : (e?.message || "취소에 실패했습니다. 서버 오류가 발생했습니다.");
             setError(errorMessage);
         } finally {
             setIsProcessing(false);
@@ -146,19 +144,6 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                             <span>선명도: <span className="text-purple-300">{(spotPhenotype.sharpness * 100).toFixed(0)}%</span></span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-500 pt-1">
-                            <span className="font-bold text-gray-600 w-12">입찰 정보</span>
-                            <div className="flex items-center gap-2">
-                                <span className={`${(liveListing.bidCount ?? 0) > 0 ? 'text-cyan-400 font-bold' : 'text-gray-400'}`}>
-                                    입찰 {liveListing.bidCount ?? 0}회
-                                </span>
-                                {liveListing.currentBidderId && (
-                                    <span className="text-[10px] bg-gray-700 px-1.5 py-0.5 rounded text-gray-300">
-                                        현재 최고 입찰자: {liveListing.currentBidderNickname}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-500 pt-1">
                             <span className="font-bold text-gray-600 w-12">유전자</span>
                             <div className="flex flex-wrap gap-1">
                                 {liveListing.koiData.genetics.baseColorGenes.map((gene, idx) => (
@@ -193,7 +178,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                         <button
                             onClick={handleCancel}
                             disabled={isProcessing}
-                            className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                         >
                             {isProcessing ? '처리 중...' : '판매 취소'}
                         </button>

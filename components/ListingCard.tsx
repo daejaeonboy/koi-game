@@ -82,13 +82,13 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, isOw
 
                 <div className="flex justify-between items-end mt-2">
                     <div className="flex flex-col">
-                        <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                            <Clock size={10} /> {timeString}
+                        <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium bg-gray-900/50 px-1.5 py-0.5 rounded-md border border-gray-700/50">
+                            <Clock size={10} className="text-cyan-400" /> {timeString}
                         </span>
                     </div>
                     <div className="flex flex-col items-end leading-none">
-                        <div className="text-yellow-400 font-bold text-lg">
-                            {buyNowPrice?.toLocaleString() ?? currentBid.toLocaleString()} <span className="text-xs">AP</span>
+                        <div className="text-yellow-400 font-black text-lg tracking-tight">
+                            {(buyNowPrice || currentBid).toLocaleString()} <span className="text-[10px] font-bold text-gray-400">AP</span>
                         </div>
                     </div>
                 </div>

@@ -291,14 +291,14 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
 
         {/* Header - Tabs System */}
         <div className="flex justify-between items-center p-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">
-          <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 pr-4">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
             {Object.values(ponds).map((pond, idx) => (
               <button
                 key={pond.id}
                 onClick={() => onPondChange(pond.id)}
-                className={`px-6 py-2 rounded-xl font-bold transition-all whitespace-nowrap text-sm border-2 ${activePondId === pond.id
-                  ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105'
-                  : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:bg-gray-700 hover:text-gray-300 hover:border-gray-600'
+                className={`px-5 py-2 rounded-md font-bold transition-all whitespace-nowrap text-sm border-2 ${activePondId === pond.id
+                  ? 'bg-cyan-600 text-white border-cyan-500'
+                  : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200 hover:border-gray-600'
                   }`}
               >
                 연못 {idx + 1}

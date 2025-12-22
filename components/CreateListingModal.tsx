@@ -6,14 +6,18 @@ import { getPhenotype, getDisplayColor } from '../utils/genetics';
 import { KoiDetailModal } from './KoiDetailModal';
 import { KoiCSSPreview } from './KoiCSSPreview';
 
+const LISTING_FEE = 100; // 등록 비용 100 AP
+const MIN_PRICE = 500; // 최소 판매가 500 AP
+
 interface CreateListingModalProps {
     isOpen: boolean;
     onClose: () => void;
     kois: Koi[]; // Available kois
     userId: string;
     userNickname: string;
+    userAP: number; // 사용자 AP 잔액
     gameState: SavedGameState;
-    onListingCreated: (koiId: string) => void;
+    onListingCreated: (koiId: string, listingFee: number) => void; // 등록 비용 전달
 }
 
 export const CreateListingModal: React.FC<CreateListingModalProps> = ({
@@ -22,6 +26,7 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
     kois,
     userId,
     userNickname,
+    userAP,
     gameState,
     onListingCreated
 }) => {
@@ -43,8 +48,13 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
         }
 
         const buyNowPriceNum = parseInt(buyNowPrice);
-        if (isNaN(buyNowPriceNum) || buyNowPriceNum < 100) {
-            setError("판매가는 최소 100 AP 이상이어야 합니다.");
+        if (isNaN(buyNowPriceNum) || buyNowPriceNum < MIN_PRICE) {
+            setError(`판매가는 최소 ${MIN_PRICE.toLocaleString()} AP 이상이어야 합니다.`);
+            return;
+        }
+
+        if (userAP < LISTING_FEE) {
+            setError(`등록 비용(${LISTING_FEE} AP)이 부족합니다. 현재: ${userAP} AP`);
             return;
         }
 
@@ -62,7 +72,7 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
         try {
             // 원자적 트랜잭션 사용: 상점 등록 + 내 연못에서 제거를 한 번에 처리
             await createListingAtomic(userId, userNickname, selectedKoi, buyNowPriceNum, gameState);
-            onListingCreated(selectedKoiId);
+            onListingCreated(selectedKoiId, LISTING_FEE);
             onClose();
         } catch (e: any) {
             console.error('[Marketplace] Error during submission:', e);
@@ -174,9 +184,21 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                         onChange={(e) => setBuyNowPrice(e.target.value)}
                                         className="w-full bg-gray-800 border border-gray-600 rounded-lg py-2 pl-3 pr-10 text-white focus:border-cyan-500 focus:outline-none"
                                         placeholder="500"
-                                        min="100"
+                                        min={MIN_PRICE}
                                     />
                                     <span className="absolute right-3 top-2.5 text-gray-400 text-sm">AP</span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1">최소 {MIN_PRICE.toLocaleString()} AP</p>
+                            </div>
+
+                            <div className="mt-3 p-2 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-yellow-400">등록 비용</span>
+                                    <span className="text-yellow-300 font-bold">{LISTING_FEE} AP</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1">
+                                    <span>내 AP 잔액</span>
+                                    <span className={userAP >= LISTING_FEE ? 'text-green-400' : 'text-red-400'}>{userAP.toLocaleString()} AP</span>
                                 </div>
                             </div>
 

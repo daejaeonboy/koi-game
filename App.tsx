@@ -510,9 +510,15 @@ export const App: React.FC = () => {
     renameKoi(koiId, nextName);
   };
 
-  const handleListingCreated = async (koiId: string) => {
+  const handleListingCreated = async (koiId: string, listingFee: number) => {
     console.log('[Marketplace] Listing created atomically. Updating local state and pausing sync...');
     isMarketplaceOperationPending.current = true; // 자동 저장 일시 중지
+
+    // 등록 비용 차감
+    setAdPoints(prev => {
+      const nextAP = prev - listingFee;
+      return nextAP >= 0 ? nextAP : 0;
+    });
 
     setPonds(prev => {
       const next = { ...prev };
@@ -533,7 +539,7 @@ export const App: React.FC = () => {
     });
 
     setMarketplaceRefreshKey(prev => prev + 1);
-    setNotification({ message: '잉어를 장터에 등록했습니다!', type: 'success' });
+    setNotification({ message: `잉어를 장터에 등록했습니다! (등록비 ${listingFee} AP)`, type: 'success' });
 
     // 3초 후 자동 저장 재개
     setTimeout(() => {
@@ -1366,6 +1372,7 @@ export const App: React.FC = () => {
             kois={koiList}
             userId={user?.uid || ''}
             userNickname={resolvedUserNickname}
+            userAP={adPoints}
             gameState={gameStateRef.current!}
             onListingCreated={handleListingCreated}
           />

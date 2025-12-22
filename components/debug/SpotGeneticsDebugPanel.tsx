@@ -12,12 +12,12 @@ interface SpotGeneticsDebugPanelProps {
 }
 
 // Gene IDs for the 2-gene system (Simplified)
-const GENE_IDS: (keyof SpotPhenotypeGenes)[] = ['CS', 'EB'];
+const GENE_IDS: (keyof SpotPhenotypeGenes)[] = ['CS', 'ES'];
 
 // Gene ID mapping to Korean labels
 const GENE_LABELS: Record<string, string> = {
     CS: '채도',
-    EB: '선명도',
+    ES: '선명도',
 };
 
 // Available color genes
@@ -133,7 +133,7 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
 
         return {
             CS: makeGene(customGenes.CS),
-            EB: makeGene(customGenes.EB),
+            ES: makeGene(customGenes.ES),
         };
     };
 
@@ -712,7 +712,7 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
                             <h5 className="text-xs text-gray-400 mb-1">🎨 무늬 표현형</h5>
                             <div className="grid grid-cols-2 gap-1 text-xs">
                                 <span>채도: <span className="text-cyan-300">{(phenotype.colorSaturation * 100).toFixed(0)}%</span></span>
-                                <span>선명도: <span className="text-cyan-300">{((1 - phenotype.edgeBlur) * 100).toFixed(0)}%</span></span>
+                                <span>선명도: <span className="text-cyan-300">{(phenotype.sharpness * 100).toFixed(0)}%</span></span>
                             </div>
                         </div>
                     )}

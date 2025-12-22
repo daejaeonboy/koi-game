@@ -382,11 +382,11 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
             ancestorTraits: {
                 grandparent1: parent1Phenotype ? {
                     colorSaturation: parent1Phenotype.colorSaturation,
-                    edgeBlur: parent1Phenotype.edgeBlur,
+                    sharpness: parent1Phenotype.sharpness,
                 } : undefined,
                 grandparent2: parent2Phenotype ? {
                     colorSaturation: parent2Phenotype.colorSaturation,
-                    edgeBlur: parent2Phenotype.edgeBlur,
+                    sharpness: parent2Phenotype.sharpness,
                 } : undefined,
             }
         };
@@ -519,7 +519,7 @@ export const getSpineColor = (phenotype: GeneType, lightness: number, saturation
 
 const GENE_DOMINANCE_CONFIG: Record<keyof SpotPhenotypeGenes, DominanceType> = {
     CS: DominanceType.INCOMPLETE,
-    EB: DominanceType.INCOMPLETE,
+    ES: DominanceType.INCOMPLETE,
 };
 
 type SpotGeneId = keyof SpotPhenotypeGenes;
@@ -529,7 +529,7 @@ interface LinkageGroup {
 }
 
 const LINKAGE_GROUPS: LinkageGroup[] = [
-    { genes: ['CS', 'EB'], linkageStrength: 0.3 },
+    { genes: ['CS', 'ES'], linkageStrength: 0.3 },
 ];
 
 interface MutationConfig {
@@ -540,7 +540,7 @@ interface MutationConfig {
 
 const MUTATION_CONFIGS: Record<keyof SpotPhenotypeGenes, MutationConfig> = {
     CS: { type: 'point', rate: 0.03, magnitude: 0.15 },
-    EB: { type: 'point', rate: 0.02, magnitude: 0.15 },
+    ES: { type: 'point', rate: 0.02, magnitude: 0.15 },
 };
 
 const CROSSOVER_RATE = 0.15;
@@ -548,7 +548,7 @@ const DRIFT_RATE = 0.005;
 
 const IMPRINTING_CONFIG: Record<keyof SpotPhenotypeGenes, { maternalBias: number; paternalBias: number }> = {
     CS: { maternalBias: 1.0, paternalBias: 1.0 },
-    EB: { maternalBias: 0.8, paternalBias: 1.2 },
+    ES: { maternalBias: 1.2, paternalBias: 0.8 }, // Reversed logic for ES
 };
 
 interface ThresholdTrait {
@@ -559,8 +559,8 @@ interface ThresholdTrait {
 }
 
 const THRESHOLD_TRAITS: ThresholdTrait[] = [
-    { id: 'golden_sheen', name: '황금빛 채도', requirements: { CS: 0.8 }, description: '황금빛으로 빛나는 강렬한 채도' },
-    { id: 'ghost_pattern', name: '흐린 무늬', requirements: { EB: 0.8 }, description: '경계가 매우 부드러운 유령 같은 무늬' },
+    { id: 'golden_sheen', name: '황금빛 채도', requirements: { CS: 80 }, description: '황금빛으로 빛나는 강렬한 채도' },
+    { id: 'ghost_pattern', name: '흐린 무늬', requirements: { ES: 30, invertES: true } as any, description: '경계가 매우 부드러운 유령 같은 무늬' },
 ];
 
 interface GeneInteraction {
@@ -570,8 +570,8 @@ interface GeneInteraction {
 }
 
 const GENE_INTERACTIONS: Record<keyof SpotPhenotypeGenes, GeneInteraction[]> = {
-    CS: [{ partner: 'EB', type: 'antagonism', strength: 0.25 }],
-    EB: [],
+    CS: [{ partner: 'ES', type: 'antagonism', strength: 0.25 }],
+    ES: [],
 };
 
 const HIDDEN_ACTIVATION_THRESHOLD = 3;
@@ -604,7 +604,13 @@ const checkThresholdTraits = (expressed: Record<keyof SpotPhenotypeGenes, number
     for (const trait of THRESHOLD_TRAITS) {
         let allMet = true;
         for (const [geneId, threshold] of Object.entries(trait.requirements)) {
-            if (expressed[geneId as keyof SpotPhenotypeGenes] < threshold) { allMet = false; break; }
+            if (geneId === 'invertES') continue;
+            const currentVal = expressed[geneId as keyof SpotPhenotypeGenes];
+            if ((trait.requirements as any).invertES && geneId === 'ES') {
+                if (currentVal > (threshold as number)) { allMet = false; break; }
+            } else {
+                if (currentVal < (threshold as number)) { allMet = false; break; }
+            }
         }
         if (allMet) activeTraits.push(trait.id);
     }
@@ -616,7 +622,7 @@ const applyThresholdEffects = (phenotype: SpotPhenotype, activeTraits: string[])
     for (const traitId of activeTraits) {
         switch (traitId) {
             case 'golden_sheen': result.colorSaturation = Math.min(1, result.colorSaturation * 1.3); break;
-            case 'ghost_pattern': result.edgeBlur = Math.min(1, result.edgeBlur * 1.25); break;
+            case 'ghost_pattern': result.sharpness = result.sharpness * 0.7; break; // Sharpness reduces for ghost pattern
         }
     }
     return result;
@@ -625,7 +631,8 @@ const applyThresholdEffects = (phenotype: SpotPhenotype, activeTraits: string[])
 const checkHiddenRecessiveActivation = (genes: SpotPhenotypeGenes): boolean => {
     let recessiveCount = 0;
     for (const geneId of Object.keys(genes) as (keyof SpotPhenotypeGenes)[]) {
-        if (genes[geneId].allele1.value < 0.35 && genes[geneId].allele2.value < 0.35) recessiveCount++;
+        // Lower values are generally more recessive/harder to maintain in this system
+        if (genes[geneId].allele1.value < 35 && genes[geneId].allele2.value < 35) recessiveCount++;
     }
     return recessiveCount >= HIDDEN_ACTIVATION_THRESHOLD;
 };
@@ -658,7 +665,7 @@ export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes | undefined, ko
     if (!genes) {
         return {
             colorSaturation: 1.0,
-            edgeBlur: 0.0,
+            sharpness: 1.0,
             activeTraits: []
         };
     }
@@ -671,7 +678,7 @@ export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes | undefined, ko
 
     const afterInteractions = applyGeneInteractions(expressed);
     let CS = afterInteractions.CS;
-    let EB = afterInteractions.EB;
+    let ES = afterInteractions.ES;
 
     if (checkHiddenRecessiveActivation(genes)) {
         CS = Math.min(100, CS * 1.2);
@@ -689,7 +696,7 @@ export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes | undefined, ko
     // Convert to 0-1 for renderer
     let phenotype: SpotPhenotype = {
         colorSaturation: Math.max(0, Math.min(1, (effectiveCS / 100) * envModifier)),
-        edgeBlur: Math.max(0, Math.min(1, EB / 100)),
+        sharpness: Math.max(0, Math.min(1, ES / 100)),
     };
 
     const activeTraits = checkThresholdTraits(afterInteractions);
@@ -714,10 +721,10 @@ export const createRandomSpotPhenotypeGenes = (): SpotPhenotypeGenes => {
             allele2: { value: Math.max(0, Math.min(100, defaultCS + randomVariance())), origin: 'paternal' },
             dominanceType: GENE_DOMINANCE_CONFIG.CS,
         },
-        EB: {
-            allele1: { value: Math.max(0, Math.min(100, defaultEB + randomVariance())), origin: 'maternal' },
-            allele2: { value: Math.max(0, Math.min(100, defaultEB + randomVariance())), origin: 'paternal' },
-            dominanceType: GENE_DOMINANCE_CONFIG.EB,
+        ES: {
+            allele1: { value: Math.max(0, Math.min(100, (100 - defaultEB) + randomVariance())), origin: 'maternal' },
+            allele2: { value: Math.max(0, Math.min(100, (100 - defaultEB) + randomVariance())), origin: 'paternal' },
+            dominanceType: GENE_DOMINANCE_CONFIG.ES,
         },
     };
 };
@@ -751,5 +758,5 @@ export const breedSpotPhenotypeGenes = (parent1Genes: SpotPhenotypeGenes, parent
 
 export const createDefaultSpotPhenotypeGenes = (): SpotPhenotypeGenes => ({
     CS: { allele1: { value: 70, origin: 'maternal' }, allele2: { value: 70, origin: 'paternal' }, dominanceType: GENE_DOMINANCE_CONFIG.CS },
-    EB: { allele1: { value: 30, origin: 'maternal' }, allele2: { value: 30, origin: 'paternal' }, dominanceType: GENE_DOMINANCE_CONFIG.EB },
+    ES: { allele1: { value: 70, origin: 'maternal' }, allele2: { value: 70, origin: 'paternal' }, dominanceType: GENE_DOMINANCE_CONFIG.ES },
 });

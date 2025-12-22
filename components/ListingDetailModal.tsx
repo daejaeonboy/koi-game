@@ -132,7 +132,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                             <span className="text-gray-600">|</span>
                             <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
                             <span className="text-gray-600">|</span>
-                            <span>선명도: <span className="text-purple-300">{((1 - spotPhenotype.edgeBlur) * 100).toFixed(0)}%</span></span>
+                            <span>선명도: <span className="text-purple-300">{(spotPhenotype.sharpness * 100).toFixed(0)}%</span></span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-500 pt-1">
                             <span className="font-bold text-gray-600 w-12">유전자</span>

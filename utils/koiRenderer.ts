@@ -359,7 +359,8 @@ export class KoiRenderer {
             ctx.clip();
 
             // Phenotype modifiers
-            const blur = phenotype ? phenotype.edgeBlur : 0.0;
+            const sharpness = phenotype ? phenotype.sharpness : 1.0;
+            const blur = 1.0 - sharpness;
 
             spots.forEach(spot => {
                 const segmentIndex = Math.floor((spot.y / 100) * this.segmentCount);

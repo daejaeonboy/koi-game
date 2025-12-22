@@ -171,7 +171,7 @@ const KoiListItem: React.FC<{
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="font-bold text-gray-500">[점]</span>
             <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
-            <span>선명도: <span className="text-purple-300">{((1 - spotPhenotype.edgeBlur) * 100).toFixed(0)}%</span></span>
+            <span>선명도: <span className="text-purple-300">{(spotPhenotype.sharpness * 100).toFixed(0)}%</span></span>
           </div>
         </div>
         <div className="mt-1 text-xs text-gray-500 flex gap-2">
@@ -245,14 +245,9 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
         });
       case 'spot_clarity_desc':
         return sorted.sort((a, b) => {
-          // Clarity = 1 - edgeBlur. Higher clarity means lower edgeBlur.
-          // We want higher clarity first.
-          // A clarity: 1 - A.edgeBlur
-          // B clarity: 1 - B.edgeBlur
-          // Sort: B - A => (1 - B.blur) - (1 - A.blur) = A.blur - B.blur
           const phenoA = calculateSpotPhenotype(a.genetics.spotPhenotypeGenes, a);
           const phenoB = calculateSpotPhenotype(b.genetics.spotPhenotypeGenes, b);
-          return (1 - phenoB.edgeBlur) - (1 - phenoA.edgeBlur);
+          return phenoB.sharpness - phenoA.sharpness;
         });
       default:
         return sorted;

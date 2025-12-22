@@ -1279,7 +1279,7 @@ export const App: React.FC = () => {
       {/* Spot Genetics Debug Panel - shows first selected koi's genes */}
       {import.meta.env.DEV && (
         <SpotGeneticsDebugPanel
-          koi={activeKoi}
+          koi={activeKoi || selectedKoisForBreeding[0] || null}
           zenPoints={zenPoints}
           onSetZenPoints={(points) => setZenPoints(points)}
           adPoints={adPoints}

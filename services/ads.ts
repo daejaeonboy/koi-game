@@ -66,11 +66,16 @@ export const showRewardAd = async (): Promise<boolean> => {
 
     if (platform === 'web') {
         return new Promise((resolve) => {
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
             if (typeof window.adBreak !== 'function') {
                 console.warn('[AdService] adBreak function not found. Is AdSense script loaded?');
-                // Fallback for dev environment without valid ad script loading (e.g. adblocker)
-                // Simulate success for testing flow
-                setTimeout(() => resolve(true), 1000);
+                if (isLocal) {
+                    console.log('[AdService] Localhost detected - Simulating ad reward after delay.');
+                    setTimeout(() => resolve(true), 1500);
+                } else {
+                    resolve(false);
+                }
                 return;
             }
 
@@ -86,7 +91,10 @@ export const showRewardAd = async (): Promise<boolean> => {
                 adBreakDone: (placementInfo: any) => {
                     console.log('[AdSense] adBreakDone', placementInfo);
                     // breakStatus: 'viewed', 'dismissed', 'timeout', 'error', 'notReady'
-                    if (placementInfo.breakStatus === 'viewed') {
+                    if (placementInfo.breakStatus === 'viewed' || (isLocal && placementInfo.breakStatus !== 'dismissed')) {
+                        if (isLocal && placementInfo.breakStatus !== 'viewed') {
+                            console.log('[AdService] Localhost override: granting reward despite breakStatus:', placementInfo.breakStatus);
+                        }
                         resolve(true);
                     } else {
                         console.log('[AdSense] Ad not viewed completely:', placementInfo.breakStatus);

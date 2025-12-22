@@ -1279,9 +1279,11 @@ export const App: React.FC = () => {
       {/* Spot Genetics Debug Panel - shows first selected koi's genes */}
       {import.meta.env.DEV && (
         <SpotGeneticsDebugPanel
-          koi={selectedKoisForBreeding[0] || null}
+          koi={activeKoi}
           zenPoints={zenPoints}
           onSetZenPoints={(points) => setZenPoints(points)}
+          adPoints={adPoints}
+          onSetAdPoints={(points) => setAdPoints(points)}
           onSpawnKoi={(genetics, growthStage) => {
             // Create new koi with custom genetics and growth stage
             const newKoi: Koi = {

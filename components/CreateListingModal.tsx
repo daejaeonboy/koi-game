@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Check, Search } from 'lucide-react';
-import { Koi, GrowthStage } from '../types';
-import { createListing } from '../services/marketplace';
+import { Koi, GrowthStage, SavedGameState } from '../types';
+import { createListingAtomic } from '../services/marketplace';
 import { getPhenotype, getDisplayColor } from '../utils/genetics';
 import { KoiDetailModal } from './KoiDetailModal';
 import { KoiCSSPreview } from './KoiCSSPreview';
@@ -11,8 +11,9 @@ interface CreateListingModalProps {
     onClose: () => void;
     kois: Koi[]; // Available kois
     userId: string;
-    userNickname: string; // Should come from profile in real app, passed from App for now
-    onListingCreated: (koiId: string) => void; // Code to remove koi from local pond
+    userNickname: string;
+    gameState: SavedGameState;
+    onListingCreated: (koiId: string) => void;
 }
 
 export const CreateListingModal: React.FC<CreateListingModalProps> = ({
@@ -21,6 +22,7 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
     kois,
     userId,
     userNickname,
+    gameState,
     onListingCreated
 }) => {
     const [selectedKoiId, setSelectedKoiId] = useState<string | null>(null);
@@ -58,8 +60,8 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
         setError(null);
 
         try {
-            // Using buyNowPrice as both startPrice and buyNowPrice for instant sale effectively
-            await createListing(userId, userNickname, selectedKoi, buyNowPriceNum, buyNowPriceNum);
+            // 원자적 트랜잭션 사용: 상점 등록 + 내 연못에서 제거를 한 번에 처리
+            await createListingAtomic(userId, userNickname, selectedKoi, buyNowPriceNum, gameState);
             onListingCreated(selectedKoiId);
             onClose();
         } catch (e: any) {

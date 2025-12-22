@@ -30,11 +30,12 @@ import { AdRewardModal } from './components/AdRewardModal';
 import { AdType, getAdReward, initializeAdMob, showRewardAd } from './services/ads';
 import { listenToAPBalance } from './services/points';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './services/firebase';
+import { db, functions } from './services/firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { MarketplaceModal } from './components/MarketplaceModal';
 import { CreateListingModal } from './components/CreateListingModal';
 import { ListingDetailModal } from './components/ListingDetailModal';
-import { createListing, fetchUserActiveListings } from './services/marketplace';
+import { createListing, createListingAtomic, fetchUserActiveListings } from './services/marketplace';
 import { MedicineConfirmModal } from './components/MedicineConfirmModal';
 import { MarketplaceListing } from './types';
 import { FORCE_CLEAR_KEY, SAVE_GAME_KEY, clearLocalGameSaves, suppressLocalGameSave } from './services/localSave';
@@ -140,6 +141,7 @@ export const App: React.FC = () => {
   const [userNickname, setUserNickname] = useState<string>('');
   const [isCloudSyncReady, setIsCloudSyncReady] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMarketplaceOperationPending = useRef(false);
 
   // Game States
   const [zenPoints, setZenPoints] = useState(savedState?.zenPoints ?? (import.meta.env.DEV ? 10000 : 2000));
@@ -345,19 +347,76 @@ export const App: React.FC = () => {
 
       // Cloud Save (Only if logged in and ready)
       if (user && isCloudSyncReady) {
+        if (isMarketplaceOperationPending.current) {
+          console.log('[Marketplace] Periodic cloud save skipped due to pending operation.');
+          return;
+        }
         try {
           await saveGameToCloud(user.uid, gameStateRef.current);
-        } catch (e) { console.error("Cloud save failed:", e); }
+        } catch (e) {
+          if (e.code !== 'unavailable') {
+            console.error("Cloud save failed:", e);
+          }
+        }
       }
     }, 5000);
 
     return () => clearInterval(saveInterval);
   }, [user, isCloudSyncReady]);
 
-  // --- Shadow Koi Cleanup Effect ---
-  // 등록 중 오류가 발생하더라도 실제 서버에 등록되었다면 연못에서 자동으로 제거합니다.
+  // --- Koi Claimer Effect ---
+  // 구매하거나 취소되어 root 'kois' 필드에 들어온 잉어를 안전하게 연못으로 수령합니다.
   useEffect(() => {
     if (!user || !isCloudSyncReady) return;
+
+    const userRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userRef, async (snap) => {
+      if (!snap.exists()) return;
+      const userData = snap.data();
+      const claimableKois = userData.kois as Koi[] | undefined;
+
+      if (claimableKois && claimableKois.length > 0) {
+        console.log(`[Claimer] ${claimableKois.length} claimable koi(s) found! Moving to pond...`);
+
+        // 1. 현재 연못 상태 업데이트
+        const activePond = ponds[activePondId];
+        if (activePond) {
+          const updatedPonds: Ponds = {
+            ...ponds,
+            [activePondId]: {
+              ...activePond,
+              kois: [...activePond.kois, ...claimableKois]
+            }
+          };
+          setPonds(updatedPonds);
+          setNotification({ message: `${claimableKois.length}마리의 잉어를 수령했습니다!`, type: 'success' });
+
+          // 2. 서버의 root 'kois' 필드 비우기 (중복 수령 방지)
+          try {
+            await setDoc(userRef, { kois: [] }, { merge: true });
+            console.log('[Claimer] Server claimed kois cleared successfully.');
+
+            // 3. 즉시 저장 (데이터 유실 방지)
+            const stateToSave: SavedGameState = {
+              ...gameStateRef.current!,
+              ponds: updatedPonds
+            };
+            localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(stateToSave));
+            await saveGameToCloud(user.uid, stateToSave);
+          } catch (e) {
+            console.error('[Claimer] Failed to clear claimed kois or sync:', e);
+          }
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, isCloudSyncReady, ponds, activePondId]);
+
+  // --- Shadow Koi Cleanup ---
+  // 등록 중 오류가 발생하여 등록은 되었으나 연못에서 안 사라진 경우를 대비한 2차 보정
+  useEffect(() => {
+    if (!user || !isCloudSyncReady || isMarketplaceOperationPending.current) return;
 
     const unsubscribe = fetchUserActiveListings(user.uid, (listings) => {
       const activeListingKoiIds = new Set(listings.map(l => l.koiData.id));
@@ -370,24 +429,30 @@ export const App: React.FC = () => {
       });
 
       if (hasShadowKoi) {
-        console.log('[Marketplace] Shadow koi detected. Cleaning up pond...');
+        console.log('[Marketplace] Shadow koi detected. Cleaning up pond automatically...');
         setPonds(prev => {
           const next = { ...prev };
           Object.keys(next).forEach(pondId => {
             const pond = next[pondId];
-            const originalCount = pond.kois.length;
             const filteredKois = pond.kois.filter(koi => !activeListingKoiIds.has(koi.id));
-            if (originalCount !== filteredKois.length) {
+            if (pond.kois.length !== filteredKois.length) {
               next[pondId] = { ...pond, kois: filteredKois };
             }
           });
+
+          // 보정된 상태를 ref에 즉시 반영
+          gameStateRef.current = {
+            ...gameStateRef.current!,
+            ponds: next
+          };
+
           return next;
         });
       }
     });
 
     return () => unsubscribe();
-  }, [user, isCloudSyncReady, ponds, activePondId]); // Re-run when ponds change to ensure consistency
+  }, [user, isCloudSyncReady, ponds]);
 
   const handleSaveNickname = useCallback(async (nickname: string) => {
     if (!user) return;
@@ -446,106 +511,62 @@ export const App: React.FC = () => {
   };
 
   const handleListingCreated = async (koiId: string) => {
-    console.log('[Marketplace] Listing created for koi:', koiId, '. Removing from pond and saving...');
+    console.log('[Marketplace] Listing created atomically. Updating local state and pausing sync...');
+    isMarketplaceOperationPending.current = true; // 자동 저장 일시 중지
 
-    // 상태 업데이트 전에 먼저 새로운 ponds 객체를 계산합니다.
-    const activePond = ponds[activePondId];
-    if (!activePond) return;
+    setPonds(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(pondId => {
+        next[pondId] = {
+          ...next[pondId],
+          kois: next[pondId].kois.filter(k => k.id !== koiId)
+        };
+      });
 
-    const updatedPonds: Ponds = {
-      ...ponds,
-      [activePondId]: {
-        ...activePond,
-        kois: activePond.kois.filter(k => k.id !== koiId)
-      }
-    };
+      // 즉시 ref 업데이트하여 다음 주기 저장 방지
+      gameStateRef.current = {
+        ...gameStateRef.current!,
+        ponds: next
+      };
 
-    // React 상태 업데이트
-    setPonds(updatedPonds);
+      return next;
+    });
+
     setMarketplaceRefreshKey(prev => prev + 1);
     setNotification({ message: '잉어를 장터에 등록했습니다!', type: 'success' });
 
-    // 즉시 저장 및 동기화
-    if (user && isCloudSyncReady) {
-      const stateToSave: SavedGameState = {
-        ...gameStateRef.current!,
-        ponds: updatedPonds
-      };
-      try {
-        localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(stateToSave));
-        await saveGameToCloud(user.uid, stateToSave);
-        console.log('[Marketplace] Success: Immediate sync completed after listing creation');
-      } catch (e) {
-        console.error('[Marketplace] Immediate sync failed:', e);
-      }
-    }
+    // 3초 후 자동 저장 재개
+    setTimeout(() => {
+      isMarketplaceOperationPending.current = false;
+      console.log('[Marketplace] Resuming periodic saves after listing created.');
+    }, 3000);
   };
 
   const handleBuySuccess = async (koi?: Koi) => {
-    console.log('[Marketplace] Buy success. Adding koi to pond and saving...');
-    const activePond = ponds[activePondId];
-    if (!activePond) return;
-
-    let updatedPonds = ponds;
-    if (koi) {
-      updatedPonds = {
-        ...ponds,
-        [activePondId]: {
-          ...activePond,
-          kois: [...activePond.kois, koi]
-        }
-      };
-      setPonds(updatedPonds);
-    }
+    console.log('[Marketplace] Buy success. Refreshing marketplace and pausing sync...');
+    isMarketplaceOperationPending.current = true;
 
     setMarketplaceRefreshKey(prev => prev + 1);
     setSelectedListing(null);
-    setNotification({ message: `잉어를 입양했습니다!`, type: 'success' });
     audioManager.playSFX('purchase');
+    setNotification({ message: `입양 절차가 진행 중입니다. 잠시만 기다려주세요.`, type: 'info' });
 
-    // 즉시 저장
-    if (user && isCloudSyncReady) {
-      const stateToSave: SavedGameState = {
-        ...gameStateRef.current!,
-        ponds: updatedPonds,
-        adPoints: adPoints // Ensure latest AP is saved too
-      };
-      try {
-        localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(stateToSave));
-        await saveGameToCloud(user.uid, stateToSave);
-      } catch (e) { console.error('Buy success sync failed:', e); }
-    }
+    setTimeout(() => {
+      isMarketplaceOperationPending.current = false;
+    }, 3000);
   };
 
   const handleCancelSuccess = async (koi: Koi) => {
-    console.log('[Marketplace] Cancel success. Returning koi to pond and saving...');
-    const activePond = ponds[activePondId];
-    if (!activePond) return;
+    console.log('[Marketplace] Cancel success. Refreshing marketplace and pausing sync...');
+    isMarketplaceOperationPending.current = true;
 
-    const updatedPonds: Ponds = {
-      ...ponds,
-      [activePondId]: {
-        ...activePond,
-        kois: [...activePond.kois, koi]
-      }
-    };
-
-    setPonds(updatedPonds);
     setMarketplaceRefreshKey(prev => prev + 1);
     setSelectedListing(null);
-    setNotification({ message: '판매 등록을 취소했습니다.', type: 'info' });
+    setNotification({ message: '판매 취소 요청이 완료되었습니다.', type: 'info' });
 
-    // 즉시 저장
-    if (user && isCloudSyncReady) {
-      const stateToSave: SavedGameState = {
-        ...gameStateRef.current!,
-        ponds: updatedPonds
-      };
-      try {
-        localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(stateToSave));
-        await saveGameToCloud(user.uid, stateToSave);
-      } catch (e) { console.error('Cancel success sync failed:', e); }
-    }
+    setTimeout(() => {
+      isMarketplaceOperationPending.current = false;
+    }, 3000);
   };
 
   const handleCleanPond = () => {
@@ -1345,6 +1366,7 @@ export const App: React.FC = () => {
             kois={koiList}
             userId={user?.uid || ''}
             userNickname={resolvedUserNickname}
+            gameState={gameStateRef.current!}
             onListingCreated={handleListingCreated}
           />
         )

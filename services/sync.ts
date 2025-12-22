@@ -8,10 +8,13 @@ const COLLECTION = 'users';
 export const saveGameToCloud = async (userId: string, gameState: SavedGameState) => {
     const userRef = doc(db, COLLECTION, userId);
 
+    // Firestore는 undefined 값을 허용하지 않으므로, JSON을 통해 정제
+    const sanitizedGameState = JSON.parse(JSON.stringify(gameState));
+
     // gameData 필드에 전체 상태 저장
     // merge: true를 사용하여 다른 필드(예: profile, ap)를 덮어쓰지 않음
     await setDoc(userRef, {
-        gameData: gameState,
+        gameData: sanitizedGameState,
         lastUpdated: new Date()
     }, { merge: true });
 };

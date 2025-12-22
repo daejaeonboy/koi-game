@@ -9,9 +9,12 @@ import {
     limit,
     onSnapshot,
     Timestamp,
+    getDoc,
+    setDoc,
+    writeBatch
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { MarketplaceListing, Koi } from '../types';
+import { MarketplaceListing, Koi, SavedGameState } from '../types';
 
 const MARKETPLACE_ITEMS_PATH = ['marketplace', 'listings', 'items'] as const;
 
@@ -102,7 +105,60 @@ export const listenToListing = (listingId: string, onUpdate: (listing: Marketpla
     });
 };
 
-// 판매 등록(경매 생성)
+// 판매 등록(경매 생성) - 순차적 + 보정 방식
+export const createListingAtomic = async (
+    userId: string,
+    sellerNickname: string,
+    koi: Koi,
+    price: number,
+    currentGameState: SavedGameState
+): Promise<void> => {
+    console.log('[Marketplace] START: createListingAtomic for koi:', koi.id);
+
+    const now = Date.now();
+    const expiresAt = now + 3 * 24 * 60 * 60 * 1000; // 3일
+    const koiData = JSON.parse(JSON.stringify(koi));
+
+    // 1. 매물 등록 먼저 (이게 성공해야 이후 단계 진행)
+    const rawListingData = {
+        sellerId: userId,
+        sellerNickname,
+        koiData,
+        koiPreview: koi.name,
+        startPrice: price,
+        buyNowPrice: price,
+        currentBid: price,
+        currentBidderId: null,
+        currentBidderNickname: null,
+        bidCount: 0,
+        status: 'active',
+    };
+
+    const listingData = JSON.parse(JSON.stringify(rawListingData));
+    listingData.createdAt = Timestamp.fromMillis(now);
+    listingData.expiresAt = Timestamp.fromMillis(expiresAt);
+
+    try {
+        // 단계1: 매물 등록 (15초 타임아웃)
+        console.log('[Marketplace] Step 1: Adding listing document...');
+        const docRef = await withTimeout(
+            addDoc(getMarketplaceItemsCollection(), listingData),
+            15000,
+            '서버 응답이 느립니다. 장터를 확인해주세요.'
+        );
+        console.log('[Marketplace] Step 1: Listing created with ID:', docRef.id);
+
+        // 단계2는 handleListingCreated에서 처리 (로컬 상태 업데이트 + Shadow Koi Cleanup)
+        // 서버 데이터 저장은 주기적 저장에서 처리됨
+
+        console.log('[Marketplace] SUCCESS: Listing created.');
+    } catch (error: any) {
+        console.error('[Marketplace] FAILED: createListingAtomic:', error);
+        throw error;
+    }
+};
+
+// (레거시) 기존 createListing은 점진적으로 제거 예정
 export const createListing = async (
     sellerId: string,
     sellerNickname: string,

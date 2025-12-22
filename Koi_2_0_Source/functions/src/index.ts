@@ -595,6 +595,12 @@ export const onCancelListing = onCall(
                     status: "cancelled",
                 });
 
+                // 잉어를 판매자의 수령 가능 목록(kois 배열)으로 반환
+                const sellerRef = db.doc(`users/${userId}`);
+                transaction.set(sellerRef, {
+                    kois: admin.firestore.FieldValue.arrayUnion(listing.koiData),
+                }, { merge: true });
+
                 return { success: true };
             });
 

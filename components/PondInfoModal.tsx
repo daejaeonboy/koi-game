@@ -289,31 +289,24 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
     <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-gray-800 rounded-lg w-full max-w-4xl h-[80vh] flex flex-col border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
 
-        {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Fish className="text-cyan-400" /> 연못 현황
-            </h2>
-          </div>
-
-          {/* Pond Tabs */}
-          <div className="flex gap-2 mx-4 overflow-x-auto no-scrollbar">
-            {Object.values(ponds).map(pond => (
+        {/* Header - Tabs System */}
+        <div className="flex justify-between items-center p-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">
+          <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 pr-4">
+            {Object.values(ponds).map((pond, idx) => (
               <button
                 key={pond.id}
                 onClick={() => onPondChange(pond.id)}
-                className={`px-4 py-2 rounded-t-lg font-bold transition-all whitespace-nowrap ${activePondId === pond.id
-                  ? 'bg-gray-800 text-cyan-400 border-t-2 border-cyan-400'
-                  : 'bg-gray-900/50 text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+                className={`px-6 py-2 rounded-xl font-bold transition-all whitespace-nowrap text-sm border-2 ${activePondId === pond.id
+                  ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105'
+                  : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:bg-gray-700 hover:text-gray-300 hover:border-gray-600'
                   }`}
               >
-                {pond.name}
+                연못 {idx + 1}
               </button>
             ))}
           </div>
 
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full transition-all flex-shrink-0">
             <X size={24} />
           </button>
         </div>

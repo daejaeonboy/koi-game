@@ -263,22 +263,26 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
     const koiList = useMemo(() => ponds[activePondId]?.kois || [], [ponds, activePondId]);
 
     const addPond = useCallback(() => {
-        const newPondId = `pond-${Object.keys(ponds).length + 1}`;
         setPonds((prevPonds: Ponds) => {
-            return {
+            const currentCount = Object.keys(prevPonds).length;
+            if (currentCount >= 4) return prevPonds;
+
+            const newPondId = `pond-${currentCount + 1}`;
+            const newPonds = {
                 ...prevPonds,
                 [newPondId]: {
                     id: newPondId,
-                    name: `연못 ${Object.keys(prevPonds).length + 1}`,
+                    name: `연못 ${currentCount + 1}`,
                     kois: [],
                     decorations: [],
                     theme: PondTheme.DEFAULT,
                     waterQuality: 100,
                 }
             };
+            setActivePondId(newPondId);
+            return newPonds;
         });
-        setActivePondId(newPondId);
-    }, [ponds]);
+    }, []);
 
     const addKois = useCallback((kois: Koi[]) => {
         setPonds((prev: Ponds) => {

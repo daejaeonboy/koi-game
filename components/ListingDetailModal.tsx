@@ -48,7 +48,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
         return () => unsubscribe();
     }, [listing.id]);
 
-    const TRANSACTION_FEE_RATE = 0.05;
+    const TRANSACTION_FEE_RATE = 0; // 수수료 제거
 
     const requiredBuyNowAp = useMemo(() => {
         if (typeof liveListing.buyNowPrice !== 'number' || liveListing.buyNowPrice <= 0) return Infinity;
@@ -194,7 +194,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                     )}
                 </div>
                 {!isOwner && typeof liveListing.buyNowPrice === 'number' && liveListing.buyNowPrice > 0 && userAP < requiredBuyNowAp && (
-                    <p className="text-xs text-red-400 text-center mt-2">AP가 부족합니다. (수수료 포함 {requiredBuyNowAp.toLocaleString()} AP 필요)</p>
+                    <p className="text-xs text-red-400 text-center mt-2">AP가 부족합니다. ({requiredBuyNowAp.toLocaleString()} AP 필요)</p>
                 )}
             </div>
         </div>

@@ -172,9 +172,6 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                 />
                                 <span className="absolute right-3 top-2.5 text-gray-400 text-sm">AP</span>
                             </div>
-                            <p className="text-[10px] text-gray-500 mt-1">
-                                구매자는 결제 시 5% 수수료가 추가됩니다. (예: 1,000 → 1,050 AP)
-                            </p>
                         </div>
 
                         {error && (

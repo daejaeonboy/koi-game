@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { X, Palette, Sun, Sparkles, Fish, Dna, DollarSign, Zap } from 'lucide-react';
+import { X, Palette, Sun, Sparkles, Fish, Dna, DollarSign, Zap, Search, Pencil, Check } from 'lucide-react';
 import { Koi, Ponds, PondData, GeneType, GrowthStage } from '../types';
-import { calculateKoiValue, calculateRarityScore, GENE_COLOR_MAP, getPhenotype, GENE_RARITY, getDisplayColor } from '../utils/genetics';
+import { calculateKoiValue, calculateRarityScore, GENE_COLOR_MAP, getPhenotype, GENE_RARITY, getDisplayColor, calculateSpotPhenotype } from '../utils/genetics';
+import { KoiCSSPreview } from './KoiCSSPreview';
 
 // Helper component for list items
 const KoiListItem: React.FC<{
@@ -10,14 +11,52 @@ const KoiListItem: React.FC<{
   onViewDetail: () => void;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
-}> = ({ koi, index, onViewDetail, isSelected, onToggleSelect }) => {
+  onRename: (id: string, nextName: string) => void;
+}> = ({ koi, index, onViewDetail, isSelected, onToggleSelect, onRename }) => {
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
   const phenotype = getPhenotype(koi.genetics.baseColorGenes);
 
   // Logic matching Koi.tsx
-  const bodyColor = getDisplayColor(phenotype, koi.genetics.lightness, koi.genetics.isTransparent);
+  const bodyColor = getDisplayColor(phenotype, koi.genetics.lightness, koi.genetics.saturation);
+  const spotPhenotype = calculateSpotPhenotype(koi.genetics.spotPhenotypeGenes, koi);
 
   const rarityScore = calculateRarityScore(koi);
   const value = calculateKoiValue(koi);
+
+  const startEditName = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNameDraft(koi.name ?? '');
+    setNameError(null);
+    setIsEditingName(true);
+  };
+
+  const cancelEditName = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingName(false);
+    setNameDraft('');
+    setNameError(null);
+  };
+
+  const commitEditName = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      setNameError('이름을 입력해주세요.');
+      return;
+    }
+    if (trimmed.length > 20) {
+      setNameError('이름은 20자 이하로 입력해주세요.');
+      return;
+    }
+
+    onRename(koi.id, trimmed);
+    setIsEditingName(false);
+    setNameDraft('');
+    setNameError(null);
+  };
 
   return (
     <div
@@ -28,38 +67,82 @@ const KoiListItem: React.FC<{
         }`}
     >
       <div className="relative mr-4">
-        <div
-          className="w-12 h-12 rounded-full border-2 border-gray-500 shadow-sm overflow-hidden relative"
-          style={{ background: bodyColor }}
-        >
-          {/* Mini spots visualization */}
-          {koi.genetics.spots.map((spot, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full"
-              style={{
-                left: `${spot.x}%`,
-                top: `${spot.y}%`,
-                width: `${spot.size}%`,
-                height: `${spot.size}%`,
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: GENE_COLOR_MAP[spot.color],
-              }}
-            />
-          ))}
-        </div>
+        <KoiCSSPreview
+          koi={koi}
+          className="w-12 h-12 border-2 border-gray-500 shadow-sm"
+        />
+        {/* Checkbox overlay */}
         <div
           className={`absolute -top-1 -left-1 w-5 h-5 rounded border flex items-center justify-center transition-colors z-10 ${isSelected ? 'bg-cyan-500 border-cyan-400 text-white' : 'bg-gray-800 border-gray-500 text-transparent hover:border-gray-300'
             }`}
         >
           {isSelected && <div className="w-2 h-2 bg-white rounded-sm" />}
         </div>
+        {/* Magnifying glass button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onViewDetail(); }}
+          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-gray-700 border border-gray-500 flex items-center justify-center hover:bg-gray-600 transition-colors z-10"
+          title="상세 보기"
+        >
+          <Search size={10} className="text-gray-300" />
+        </button>
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-gray-200 truncate">코이 #{index}</span>
+            {isEditingName ? (
+              <div className="flex items-center gap-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                <input
+                  value={nameDraft}
+                  onChange={(e) => {
+                    setNameDraft(e.target.value);
+                    setNameError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitEditName();
+                    if (e.key === 'Escape') {
+                      setIsEditingName(false);
+                      setNameDraft('');
+                      setNameError(null);
+                    }
+                  }}
+                  className="w-36 bg-gray-900/60 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="이름 입력"
+                  maxLength={20}
+                  autoFocus
+                />
+                <button
+                  onClick={(e) => commitEditName(e)}
+                  className="p-1 rounded bg-cyan-700 hover:bg-cyan-600 text-white"
+                  title="저장"
+                  type="button"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  onClick={cancelEditName}
+                  className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600"
+                  title="취소"
+                  type="button"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <span className="font-bold text-gray-200 truncate">{koi.name || `코이 #${index}`}</span>
+                <button
+                  onClick={startEditName}
+                  className="p-1 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+                  title="이름 변경"
+                  type="button"
+                >
+                  <Pencil size={14} />
+                </button>
+                <span className="text-xs text-gray-500 font-mono">#{index}</span>
+              </>
+            )}
             <span className="text-xs bg-gray-800 px-1.5 py-0.5 rounded border border-gray-600 text-gray-400">
               {koi.growthStage === 'adult' ? '성체' : koi.growthStage === 'juvenile' ? '준성체' : '치어'}
             </span>
@@ -73,9 +156,23 @@ const KoiListItem: React.FC<{
             {value} ZP
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-yellow-400 whitespace-nowrap">
-          <span>명도: {Math.round(koi.genetics.lightness)}</span>
-          <span>체력: {Math.round(koi.stamina ?? 0)}</span>
+        {isEditingName && nameError && (
+          <div className="mt-1 text-[11px] text-red-300 bg-red-900/30 border border-red-800 rounded px-2 py-1" onClick={(e) => e.stopPropagation()}>
+            {nameError}
+          </div>
+        )}
+        <div className="flex flex-col gap-0.5 mt-1">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span className="font-bold text-gray-500">[몸]</span>
+            <span>명도: <span className="text-gray-300">{Math.round(koi.genetics.lightness)}</span></span>
+            <span>채도: <span className="text-gray-300">{Math.round(koi.genetics.saturation)}</span></span>
+            <span className="ml-auto text-yellow-400">체력: {Math.round(koi.stamina ?? 0)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span className="font-bold text-gray-500">[무늬]</span>
+            <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
+            <span>선명도: <span className="text-purple-300">{((1 - spotPhenotype.edgeBlur) * 100).toFixed(0)}%</span></span>
+          </div>
         </div>
         <div className="mt-1 text-xs text-gray-500 flex gap-2">
           <span className="text-gray-400">점: <span className="text-cyan-300 font-bold">{koi.genetics.spots.length}개</span></span>
@@ -101,6 +198,7 @@ interface PondInfoModalProps {
   onSell: (kois: Koi[]) => void;
   onBreed: (kois: Koi[]) => void;
   onMove: (kois: Koi[], targetPondId: string) => void;
+  onRenameKoi: (koiId: string, nextName: string) => void;
 }
 
 type SortOption = 'default' | 'spots_desc' | 'lightness_desc' | 'lightness_asc';
@@ -115,7 +213,8 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
   onKoiSelect,
   onSell,
   onBreed,
-  onMove
+  onMove,
+  onRenameKoi
 }) => {
   const [sortOption, setSortOption] = useState<SortOption>('default');
   const [selectedKoiIds, setSelectedKoiIds] = useState<Set<string>>(new Set());
@@ -175,25 +274,29 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
 
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
-          {/* Pond Tabs - Replaces Title */}
-          <div className="flex gap-2 mr-auto overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Fish className="text-cyan-400" /> 연못 현황
+            </h2>
+          </div>
+
+          {/* Pond Tabs */}
+          <div className="flex gap-2 mx-4 overflow-x-auto no-scrollbar">
             {Object.values(ponds).map(pond => (
               <button
                 key={pond.id}
                 onClick={() => onPondChange(pond.id)}
-                className={`px-4 py-2 rounded-lg font-bold transition-all whitespace-nowrap flex items-center gap-2 ${activePondId === pond.id
-                  ? 'bg-gray-800 text-cyan-400 border border-cyan-500/50 shadow-lg shadow-cyan-900/20'
-                  : 'bg-gray-900/50 text-gray-500 hover:bg-gray-800 hover:text-gray-300 border border-transparent'
+                className={`px-4 py-2 rounded-t-lg font-bold transition-all whitespace-nowrap ${activePondId === pond.id
+                  ? 'bg-gray-800 text-cyan-400 border-t-2 border-cyan-400'
+                  : 'bg-gray-900/50 text-gray-500 hover:bg-gray-800 hover:text-gray-300'
                   }`}
               >
-                {/* Optional Icon for active tab */}
-                {activePondId === pond.id && <Fish size={16} />}
                 {pond.name}
               </button>
             ))}
           </div>
 
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors ml-4">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
             <X size={24} />
           </button>
         </div>
@@ -244,6 +347,7 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
                 onViewDetail={() => onKoiSelect(koi)}
                 isSelected={selectedKoiIds.has(koi.id)}
                 onToggleSelect={toggleSelect}
+                onRename={onRenameKoi}
               />
             ))}
             {sortedKoiList.length === 0 && (

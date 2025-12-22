@@ -1,0 +1,80 @@
+.session-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    /* High z-index to block everything */
+}
+
+.session-modal-content {
+    background-color: #1a1a2e;
+    color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 350px;
+    text-align: center;
+    border: 1px solid #4a4e69;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.warning-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.session-modal-content h2 {
+    margin-bottom: 1rem;
+    color: #ffd700;
+}
+
+.session-modal-content p {
+    color: #b8b8d0;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.warning-text {
+    font-size: 0.9rem;
+    color: #ff6b6b;
+    background-color: rgba(255, 107, 107, 0.1);
+    padding: 0.8rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.button-group button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.button-group button:hover {
+    filter: brightness(1.1);
+}
+
+.btn-logout {
+    background-color: #4a4e69;
+    color: white;
+}
+
+.btn-resolve {
+    background-color: #e63946;
+    color: white;
+}

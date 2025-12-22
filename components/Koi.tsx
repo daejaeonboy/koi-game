@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Koi as KoiType } from '../types';
-import { GENE_COLOR_MAP, getPhenotype, getDisplayColor } from '../utils/genetics';
+import { GENE_COLOR_MAP, getPhenotype, getDisplayColor, calculateSpotPhenotype } from '../utils/genetics';
 import { KoiRenderer } from '../utils/koiRenderer';
 
 interface KoiProps {
@@ -36,12 +36,17 @@ export const Koi: React.FC<KoiProps> = ({ koi, onClick, isSelected }) => {
         if (ctx && currentKoi) {
           // Get colors from genetics (calculated here to ensure latest state)
           const phenotype = getPhenotype(currentKoi.genetics.baseColorGenes);
-          const bodyColor = getDisplayColor(phenotype, currentKoi.genetics.lightness, currentKoi.genetics.isTransparent);
+          const bodyColor = getDisplayColor(phenotype, currentKoi.genetics.lightness, currentKoi.genetics.isTransparent, currentKoi.genetics.saturation);
 
           const colors = {
             outline: 'rgba(255, 255, 255, 0.15)',
             body: bodyColor,
-            pattern: '#FF4500'
+            pattern: '#FF4500',
+            spine: '#000000',
+            fin: bodyColor.replace(/hsla\((\d+),\s*([.\d]+)%,\s*([.\d]+)%,\s*1\)/, (match: string, h: string, s: string, l: string) => {
+              const desaturatedS = Math.max(0, parseFloat(s) * 0.4);
+              return `hsla(${h}, ${desaturatedS}%, ${l}%, 0.5)`;
+            })
           };
 
           const spots = currentKoi.genetics.spots.map(spot => ({
@@ -50,7 +55,7 @@ export const Koi: React.FC<KoiProps> = ({ koi, onClick, isSelected }) => {
           }));
 
           // Update simulation (smooths head position internally)
-          rendererRef.current.update(currentKoi);
+          rendererRef.current.update(currentKoi, 1 / 60);
 
           // Update DIV position directly for smooth movement across screen
           // We get the smoothed head position from the renderer
@@ -64,7 +69,8 @@ export const Koi: React.FC<KoiProps> = ({ koi, onClick, isSelected }) => {
           divRef.current.style.top = `${top}%`;
 
           // Draw to canvas
-          rendererRef.current.draw(ctx, canvasRef.current.width, canvasRef.current.height, colors, spots);
+          const spotPhenotype = calculateSpotPhenotype(currentKoi.genetics.spotPhenotypeGenes, currentKoi);
+          rendererRef.current.draw(ctx, canvasRef.current.width, canvasRef.current.height, colors, spots, spotPhenotype);
         }
       }
 

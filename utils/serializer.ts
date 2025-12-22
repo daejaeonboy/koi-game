@@ -1,17 +1,17 @@
-import { SavedGameState, Ponds, PondData, Koi, KoiGenetics, Spot, GeneType, SpotShape, PondTheme } from '../types';
+import { SavedGameState, Ponds, PondData, Koi, KoiGenetics, Spot, GeneType, SpotShape, PondTheme, GrowthStage } from '../types';
 
 // Dictionaries for mapping Enums to Integers
 const GENE_MAP = [
-    GeneType.BROWN, GeneType.BLACK, GeneType.RED, GeneType.YELLOW,
-    GeneType.WHITE, GeneType.ORANGE, GeneType.CREAM
+    GeneType.BLACK, GeneType.RED, GeneType.YELLOW, GeneType.WHITE,
+    GeneType.ORANGE, GeneType.CREAM
 ];
 
 const SHAPE_MAP = [
-    SpotShape.CIRCLE, SpotShape.PENTAGON, SpotShape.BLOTCH
+    SpotShape.CIRCLE, SpotShape.HEXAGON, SpotShape.POLYGON, SpotShape.OVAL_H
 ];
 
 const THEME_MAP = [
-    PondTheme.DEFAULT, PondTheme.MUD, PondTheme.MOSS, PondTheme.NIGHT
+    PondTheme.DEFAULT, PondTheme.MUD, PondTheme.MOSS
 ];
 
 // Round number to precision
@@ -25,20 +25,19 @@ const round = (num: number, precision: number = 1) => {
 // Spot: [x, y, size, colorIdx, shapeIdx]
 type MinifiedSpot = [number, number, number, number, number];
 
-// Genetics: [ [baseGenes...], [spots...], lightness, isTransparent ]
+// Genetics: [ [baseGenes...], [spots...], lightness, saturation ]
 type MinifiedGenetics = [number[], MinifiedSpot[], number, number];
 
 // Koi: [id, name, genetics, age, size, growthStageIdx, timesFed, x, y] (Last 2: pos)
 type MinifiedKoi = [string, string, MinifiedGenetics, number, number, number, number, number, number];
 
-// Pond: [id, name, themeIdx, [kois...], [decorations...]] 
-// Dropping decorations for now as they are usually static or removed
-type MinifiedPond = [string, string, number, MinifiedKoi[]];
+// Pond: [id, name, themeIdx, [kois...], waterQuality] 
+type MinifiedPond = [string, string, number, MinifiedKoi[], number];
 
-// State: [version, zenPoints, foodCount, cornCount, koisNameCounter, [ponds...], activePondId]
-type MinifiedState = [number, number, number, number, number, MinifiedPond[], string];
+// State: [version, zenPoints, foodCount, cornCount, koisNameCounter, [ponds...], activePondId, medicineCount]
+type MinifiedState = [number, number, number, number, number, MinifiedPond[], string, number];
 
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 
 export const compressGameStateAsync = async (state: SavedGameState): Promise<string> => {
@@ -58,7 +57,8 @@ export const compressGameStateAsync = async (state: SavedGameState): Promise<str
                 minGenes,
                 minSpots,
                 koi.genetics.lightness,
-                koi.genetics.isTransparent ? 1 : 0
+                koi.genetics.saturation
+
             ];
 
             const stageIdx = ['fry', 'juvenile', 'adult'].indexOf(koi.growthStage);
@@ -80,7 +80,8 @@ export const compressGameStateAsync = async (state: SavedGameState): Promise<str
             pond.id,
             pond.name,
             THEME_MAP.indexOf(pond.theme),
-            minKois
+            minKois,
+            round(pond.waterQuality || 100)
         ];
     });
 
@@ -91,7 +92,8 @@ export const compressGameStateAsync = async (state: SavedGameState): Promise<str
         state.cornCount || 0,
         state.koiNameCounter,
         minPonds,
-        state.activePondId
+        state.activePondId,
+        state.medicineCount || 0
     ];
 
     const json = JSON.stringify(minState);
@@ -151,19 +153,17 @@ export const decompressGameStateAsync = async (code: string): Promise<SavedGameS
         const minState: MinifiedState = JSON.parse(json);
 
         const version = minState[0];
-        // Handle version data if needed loops
-
         const pondsArray = minState[5];
         const ponds: Ponds = {};
 
         pondsArray.forEach(p => {
-            const [id, name, themeIdx, minKois] = p;
+            const [id, name, themeIdx, minKois, waterQuality] = p;
 
             const kois: Koi[] = minKois.map(mk => {
                 const [kid, kname, mGen, kAge, kSize, kStageIdx, kFed, kx, ky] = mk;
-                const [mGenes, mSpots, kLight, kTrans] = mGen;
+                const [mGenes, mSpots, kLight, kSaturation] = mGen;
 
-                const baseColorGenes = mGenes.map(idx => GENE_MAP[idx]);
+                const baseColorGenes = mGenes.map(idx => GENE_MAP[idx] || GeneType.CREAM);
                 const spots: Spot[] = mSpots.map(s => ({
                     x: s[0],
                     y: s[1],
@@ -172,7 +172,7 @@ export const decompressGameStateAsync = async (code: string): Promise<SavedGameS
                     shape: SHAPE_MAP[s[4]] || SpotShape.CIRCLE
                 }));
 
-                const growthStages: ('fry' | 'juvenile' | 'adult')[] = ['fry', 'juvenile', 'adult'];
+                const growthStages: GrowthStage[] = [GrowthStage.FRY, GrowthStage.JUVENILE, GrowthStage.ADULT];
 
                 return {
                     id: kid,
@@ -182,16 +182,17 @@ export const decompressGameStateAsync = async (code: string): Promise<SavedGameS
                         baseColorGenes,
                         spots,
                         lightness: kLight,
-                        isTransparent: kTrans === 1
+                        saturation: (kSaturation !== undefined && kSaturation > 1) ? kSaturation : 50
                     },
                     position: { x: kx, y: ky },
                     velocity: { vx: 0, vy: 0 },
                     age: kAge,
                     size: kSize,
-                    growthStage: growthStages[kStageIdx] || 'fry',
+                    growthStage: growthStages[kStageIdx] || GrowthStage.FRY,
                     timesFed: kFed,
                     foodTargetId: null,
-                    feedCooldownUntil: null
+                    feedCooldownUntil: null,
+                    stamina: 100 // Reset stamina on load for safety
                 };
             });
 
@@ -200,16 +201,18 @@ export const decompressGameStateAsync = async (code: string): Promise<SavedGameS
                 name,
                 theme: THEME_MAP[themeIdx] || PondTheme.DEFAULT,
                 kois,
-                decorations: [] // Reset decorations (they were static anyway, or user can re-add)
+                decorations: [],
+                waterQuality: waterQuality !== undefined ? waterQuality : 100
             };
         });
 
         return {
             ponds,
-            activePondId: minState[6],
+            activePondId: minState[6] || 'pond-1',
             zenPoints: minState[1],
             foodCount: minState[2],
             cornCount: minState[3],
+            medicineCount: minState[7] || 0,
             koiNameCounter: minState[4],
             timestamp: Date.now()
         };

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Zen Koi Final</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #0a2e38 0%, #000d1a 100%);
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const config = {
+            segmentCount: 60,
+            spacing: 3.5,
+            colors: {
+                outline: 'rgba(255, 255, 255, 0.15)',
+                body: '#FDFDFD',
+                pattern: '#FF4500'
+            },
+            speed: 3.0,
+            turnSpeed: 0.05
+        };
+
+        function getRadius(index) {
+            const t = index / (config.segmentCount - 1);
+            const peakPoint = 0.25;
+            const maxRadius = 26;
+            const noseRadius = 15;
+            const tailRadius = 1;
+
+            if (t < peakPoint) {
+                const progress = t / peakPoint;
+                return noseRadius + (maxRadius - noseRadius) * Math.sin(progress * Math.PI / 2);
+            } else {
+                const progress = (t - peakPoint) / (1 - peakPoint);
+                return maxRadius - (maxRadius - tailRadius) * Math.pow(progress, 1.5);
+            }
+        }
+
+        const segments = [];
+        for (let i = 0; i < config.segmentCount; i++) {
+            segments.push({ x: width / 2, y: height / 2 + i * config.spacing, angle: 0 });
+        }
+
+        let target = { x: Math.random() * width, y: Math.random() * height };
+
+        function update() {
+            const head = segments[0];
+            const distToTarget = Math.hypot(target.x - head.x, target.y - head.y);
+            if (distToTarget < 100) {
+                const padding = 100;
+                target = {
+                    x: padding + Math.random() * (width - padding * 2),
+                    y: padding + Math.random() * (height - padding * 2)
+                };
+            }
+            const angleToTarget = Math.atan2(target.y - head.y, target.x - head.x);
+            let diff = angleToTarget - head.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            head.angle += diff * config.turnSpeed;
+
+            head.x += Math.cos(head.angle) * config.speed;
+            head.y += Math.sin(head.angle) * config.speed;
+
+            const margin = 50;
+            if (head.x < -margin) head.x = width + margin;
+            if (head.x > width + margin) head.x = -margin;
+            if (head.y < -margin) head.y = height + margin;
+            if (head.y > height + margin) head.y = -margin;
+
+            for (let i = 1; i < config.segmentCount; i++) {
+                const cur = segments[i];
+                const prev = segments[i - 1];
+                const dx = cur.x - prev.x;
+                const dy = cur.y - prev.y;
+                const targetAngle = Math.atan2(dy, dx);
+                cur.x = prev.x + Math.cos(targetAngle) * config.spacing;
+                cur.y = prev.y + Math.sin(targetAngle) * config.spacing;
+                cur.angle = targetAngle;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. 큰 가슴 지느러미
+            drawFin(segments[15], 'left', 0.8, 15);
+            drawFin(segments[15], 'right', 0.8, 15);
+
+            // 2. 작은 배 지느러미
+            drawFin(segments[38], 'left', 0.6, 6);
+            drawFin(segments[38], 'right', 0.6, 6);
+
+            drawTail(segments[config.segmentCount - 1]);
+
+            // [Layer 1] 외곽선
+            ctx.fillStyle = config.colors.outline;
+            for (let i = config.segmentCount - 1; i >= 0; i--) {
+                const r = getRadius(i);
+                ctx.beginPath();
+                ctx.arc(segments[i].x, segments[i].y, r + 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // [Layer 2] 몸통
+            ctx.save();
+            ctx.beginPath();
+            for (let i = config.segmentCount - 1; i >= 0; i--) {
+                const r = getRadius(i);
+                ctx.moveTo(segments[i].x + r, segments[i].y);
+                ctx.arc(segments[i].x, segments[i].y, r, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = config.colors.body;
+            ctx.fill();
+
+            ctx.globalCompositeOperation = 'source-atop';
+
+            // [Layer 3] 무늬
+            drawPatterns();
+
+            // [Layer 4] 등줄기
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            const startIdx = 8;
+            const endIdx = config.segmentCount - 12;
+            if (segments.length > endIdx) {
+                ctx.moveTo(segments[startIdx].x, segments[startIdx].y);
+                for (let i = startIdx + 1; i < endIdx; i++) {
+                    ctx.lineTo(segments[i].x, segments[i].y);
+                }
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawPatterns() {
+            ctx.fillStyle = config.colors.pattern;
+            let s = segments[10];
+            ctx.beginPath(); ctx.arc(s.x, s.y, 20, 0, Math.PI * 2); ctx.fill();
+            s = segments[26];
+            ctx.beginPath(); ctx.arc(s.x, s.y, 22, 0, Math.PI * 2); ctx.fill();
+            s = segments[45];
+            ctx.beginPath(); ctx.arc(s.x, s.y, 14, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function drawFin(s, type, sizeScale, yOffset) {
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(s.angle);
+            const sideScale = type === 'left' ? 1 : -1;
+            ctx.translate(0, yOffset * sideScale);
+
+            // 1. 지느러미 형태 그리기
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(255, 252, 252, 0.5)';
+            ctx.moveTo(0, 0);
+
+            const outerX = 45 * sizeScale;
+            const outerY = 60 * sideScale * sizeScale;
+            const innerX = 35 * sizeScale;
+            const innerY = 10 * sideScale * sizeScale;
+
+            ctx.quadraticCurveTo(5 * sizeScale, 30 * sideScale * sizeScale, outerX, outerY);
+            ctx.quadraticCurveTo(55 * sizeScale, 40 * sideScale * sizeScale, innerX, innerY);
+            ctx.lineTo(0, 0);
+            ctx.fill();
+
+            // ★★★ 핵심 추가: 빗살무늬 (Striations) ★★★
+            ctx.save();
+            ctx.clip(); // 지느러미 모양 밖으로 선이 나가지 않도록 자름
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; // 은은한 빗살 색
+            ctx.lineWidth = 1;
+
+            // 뿌리(0,0)에서 바깥쪽으로 퍼지는 선들을 그립니다.
+            const rayCount = 6;
+            for (let i = 1; i <= rayCount; i++) {
+                const t = i / (rayCount + 1);
+                // 외곽선(outer)과 내곽선(inner) 사이를 보간하여 목표점 계산
+                // 선을 지느러미보다 조금 더 길게 그려서(1.2배) 끝까지 닿게 함
+                const tx = (outerX * (1 - t) + innerX * t) * 1.2;
+                const ty = (outerY * (1 - t) + innerY * t) * 1.2;
+
+                ctx.moveTo(0, 0);
+                ctx.lineTo(tx, ty);
+            }
+            ctx.stroke();
+            ctx.restore(); // 클리핑 해제
+
+            ctx.restore();
+        }
+
+        function drawTail(s) {
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(s.angle);
+
+            // 1. 꼬리 형태 그리기
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(255, 252, 252, 0.5)';
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(15, 30, 60, 55, 90, 30);
+            ctx.bezierCurveTo(80, 0, 80, 0, 90, -30);
+            ctx.bezierCurveTo(60, -55, 15, -30, 0, 0);
+            ctx.fill();
+
+            // ★★★ 핵심 추가: 꼬리 빗살무늬 ★★★
+            ctx.save();
+            ctx.clip();
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1;
+
+            const rays = 10;
+            for (let i = 0; i <= rays; i++) {
+                // -1 ~ 1 사이 값
+                const t = (i / rays) * 2 - 1;
+                // 꼬리 끝부분을 향해 부채꼴로 퍼짐
+                const tx = 100; // 길이
+                const ty = t * 50; // 폭
+
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(20, ty * 0.5, tx, ty); // 약간 곡선 처리
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+
+</html>

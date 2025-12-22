@@ -98,22 +98,26 @@ export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, the
   useEffect(() => {
     if (canvasRef.current && !engineRef.current) {
       engineRef.current = new GameEngine(canvasRef.current);
+
+      // Perform initial syncs immediately
+      engineRef.current.syncKois(koiList);
+      engineRef.current.syncFoods(foodPellets);
+      engineRef.current.setTheme(theme);
+      engineRef.current.setDayNight(isNight);
+      engineRef.current.setWaterQuality(waterQuality);
+      engineRef.current.setSelection(breedingSelection);
+      engineRef.current.onFoodEaten = onFoodEaten;
+
       engineRef.current.start();
     }
+
     return () => {
       if (engineRef.current) {
         engineRef.current.stop();
         engineRef.current = null;
       }
     };
-  }, []);
-
-  // Update Callback
-  useEffect(() => {
-    if (engineRef.current) {
-      engineRef.current.onFoodEaten = onFoodEaten;
-    }
-  }, [onFoodEaten]);
+  }, []); // Run ONLY once on mount
 
   // Sync Data with Engine
   useEffect(() => {
@@ -154,6 +158,13 @@ export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, the
       engineRef.current.setSelection(breedingSelection);
     }
   }, [breedingSelection]);
+
+  // Sync onFoodEaten callback without restarting engine
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.onFoodEaten = onFoodEaten;
+    }
+  }, [onFoodEaten]);
 
   // Handle Resize
   useEffect(() => {

@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Koi, GeneType, Ponds, GrowthStage, Decoration, DecorationType, PondTheme, SpotShape } from '../types';
+import { audioManager } from '../utils/audio';
 
 const POINTS_TO_JUVENILE = 10;
 const POINTS_TO_ADULT = 20;
@@ -40,9 +41,9 @@ const createInitialPonds = (): Ponds => {
             spots.push({
                 x: Math.random() * 80 + 10,
                 y: Math.random() * 80 + 10,
-                size: Math.random() * 15 + 15, // 15-30 size
+                size: Math.random() * 50 + 40, // 40-90% size range (User confirmed ranges)
                 color: GeneType.RED,
-                shape: Object.values(SpotShape)[Math.floor(Math.random() * 3)]
+                shape: Object.values(SpotShape)[Math.floor(Math.random() * (Object.values(SpotShape).length))] as SpotShape
             });
         }
 
@@ -54,7 +55,7 @@ const createInitialPonds = (): Ponds => {
                 baseColorGenes: [GeneType.CREAM, GeneType.CREAM], // Cream Base (Homozygous)
                 spots: spots,
                 lightness: 50,
-                isTransparent: false,
+                saturation: 50,
             },
             position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
             velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
@@ -85,7 +86,7 @@ const createInitialPonds = (): Ponds => {
             spots.push({
                 x: Math.random() * 80 + 10,
                 y: Math.random() * 80 + 10,
-                size: Math.random() * 15 + 15,
+                size: Math.random() * 50 + 40, // 40-90% size range
                 color: GeneType.RED,
                 shape: s.shape
             });
@@ -99,7 +100,7 @@ const createInitialPonds = (): Ponds => {
                 baseColorGenes: [GeneType.CREAM, GeneType.CREAM],
                 spots: spots,
                 lightness: 50,
-                isTransparent: false,
+                saturation: 50,
             },
             position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
             velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
@@ -344,7 +345,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                     baseColorGenes: [color, color], // Homozygous to ensure expression
                     spots: initialSpots,
                     lightness: 50,
-                    isTransparent: false,
+                    saturation: 50,
                 },
                 position: { x: 50, y: 50 }, // Center spawn
                 velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
@@ -361,7 +362,9 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
             // User said "Basic Koi has 2 spots".
             // If I randomize shapes, it's fine.
             newKoi.genetics.spots.forEach(spot => {
-                spot.shape = Object.values(SpotShape)[Math.floor(Math.random() * 3)] as SpotShape;
+                const shapes = Object.values(SpotShape);
+                spot.shape = shapes[Math.floor(Math.random() * shapes.length)] as SpotShape;
+                spot.size = Math.random() * 40 + 40; // 40-80 size
             });
 
             return {
@@ -406,7 +409,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
         const newPellets: FoodPellet[] = [];
         for (let i = 0; i < 3; i++) {
             newPellets.push({
-                id: Date.now() + i,
+                id: Date.now() + i + Math.floor(Math.random() * 1000000),
                 position: {
                     x: position.x + (Math.random() - 0.5) * 4,
                     y: position.y + (Math.random() - 0.5) * 4,
@@ -576,6 +579,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
             };
         });
 
+        audioManager.playSFX('eat');
         setFoodPellets((prev: FoodPellet[]) => prev.filter(p => p.id !== foodId));
         triggerFeedAnimation(position, feedAmount);
     }, [activePondId, triggerFeedAnimation]);
@@ -678,6 +682,19 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                     [activePondId]: {
                         ...activePond,
                         kois: updatedKois
+                    }
+                };
+            });
+        },
+        renameKoi: (koiId: string, nextName: string) => {
+            setPonds(prev => {
+                const activePond = prev[activePondId];
+                if (!activePond) return prev;
+                return {
+                    ...prev,
+                    [activePondId]: {
+                        ...activePond,
+                        kois: activePond.kois.map(k => k.id === koiId ? { ...k, name: nextName } : k)
                     }
                 };
             });

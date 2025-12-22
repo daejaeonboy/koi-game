@@ -15,13 +15,13 @@ function testBreeding() {
         baseColorGenes: [GeneType.CREAM, GeneType.CREAM],
         spots: [],
         lightness: 50,
-        isTransparent: false
+        saturation: 50
     };
     const parentB: KoiGenetics = {
         baseColorGenes: [GeneType.CREAM, GeneType.CREAM],
         spots: [],
         lightness: 50,
-        isTransparent: false
+        saturation: 50
     };
 
     let blackCount = 0;
@@ -44,13 +44,13 @@ function testBreeding() {
         baseColorGenes: [GeneType.CREAM, GeneType.CREAM, GeneType.BLACK],
         spots: [],
         lightness: 50,
-        isTransparent: false
+        saturation: 50
     };
     const carrierB: KoiGenetics = {
         baseColorGenes: [GeneType.CREAM, GeneType.CREAM, GeneType.BLACK], // Homozygous-ish for Cream, heterozygous for Black?
         spots: [],
         lightness: 50,
-        isTransparent: false
+        saturation: 50
     };
 
     let blackCarrierCount = 0;

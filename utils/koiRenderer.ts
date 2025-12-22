@@ -1,4 +1,4 @@
-import { Koi as KoiType, SpotShape } from '../types';
+import { Koi as KoiType, SpotShape, SpotPhenotype } from '../types';
 
 interface Segment {
     x: number;
@@ -148,7 +148,7 @@ export class KoiRenderer {
         return { x: this.segments[0].x, y: this.segments[0].y };
     }
 
-    public draw(ctx: CanvasRenderingContext2D, width: number, height: number, colors: KoiColors, spots: Array<{ x: number, y: number, size: number, color: string }>) {
+    public draw(ctx: CanvasRenderingContext2D, width: number, height: number, colors: KoiColors, spots: Array<{ x: number, y: number, size: number, color: string }>, phenotype?: SpotPhenotype, isAlbino: boolean = false) {
         if (!this.initialized) return;
         const head = this.segments[0];
         const toLocal = (x: number, y: number) => {
@@ -157,7 +157,7 @@ export class KoiRenderer {
                 y: y - head.y + height / 2
             };
         };
-        this.renderKoi(ctx, colors, spots, toLocal);
+        this.renderKoi(ctx, colors, spots, toLocal, 0, phenotype, isAlbino);
     }
 
     public hitTest(x: number, y: number, hitMargin: number = 0): boolean {
@@ -227,7 +227,7 @@ export class KoiRenderer {
         ctx.restore();
     }
 
-    public drawWorld(ctx: CanvasRenderingContext2D, colors: KoiColors, spots: Array<{ x: number, y: number, size: number, color: string }>, isSelected: boolean = false, time: number = 0) {
+    public drawWorld(ctx: CanvasRenderingContext2D, colors: KoiColors, spots: Array<{ x: number, y: number, size: number, color: string }>, isSelected: boolean = false, time: number = 0, phenotype?: SpotPhenotype, isAlbino: boolean = false) {
         if (!this.initialized) return;
         const toWorld = (x: number, y: number) => ({ x, y });
 
@@ -235,23 +235,11 @@ export class KoiRenderer {
             this.drawSelectionOutline(ctx, toWorld);
         }
 
-        this.renderKoi(ctx, colors, spots, toWorld, time);
+        this.renderKoi(ctx, colors, spots, toWorld, time, phenotype, isAlbino);
     }
 
-    // ... drawHitboxDebug ... (Skipping for brevity, unaffected)
     private drawHitboxDebug(ctx: CanvasRenderingContext2D) {
-        // ... existing implementation ... 
-        // Since I cannot skip lines without regex matching mess, I will try to leave this intact in ReplaceContent if possible or just include it?
-        // Actually, I am replacing a big chunk, so I should be careful.
-        // It's safer to use smaller chunks if possible, but I already started this big chunk.
-        // Let's assume I need to provide the content up to drawWorld end.
-        // Wait, `drawHitboxDebug` and `drawSelectionOutline` were AFTER `drawWorld` in original.
-        // I'll interrupt the replacement before `drawHitboxDebug` and use a second chunk if needed. 
-        // Ah, the tool `replace_file_content` takes StartLine/EndLine. 
-        // I used StartLine 9, EndLine 600 which covers almost everything.
-        // I should include `drawHitboxDebug` and `drawSelectionOutline` in the replacement content to be safe, or adjust the range.
-        // Let's adjust the range to stop before `drawSelectionOutline` if I can.
-        // Actually, I'll just provide the missing methods in the replacement string to be safe and complete.
+        // Debug placeholder
     }
 
     private drawSelectionOutline(ctx: CanvasRenderingContext2D, transform: (x: number, y: number) => { x: number, y: number }) {
@@ -300,9 +288,7 @@ export class KoiRenderer {
         ctx.restore();
     }
 
-
-
-    private renderKoi(ctx: CanvasRenderingContext2D, colors: KoiColors, spots: Array<{ x: number, y: number, size: number, color: string }>, transform: (x: number, y: number) => { x: number, y: number }, time: number = 0) {
+    private renderKoi(ctx: CanvasRenderingContext2D, colors: KoiColors, spots: Array<{ x: number, y: number, size: number, color: string }>, transform: (x: number, y: number) => { x: number, y: number }, time: number = 0, phenotype?: SpotPhenotype, isAlbino: boolean = false) {
         // USE CACHED FIN COLOR directly! No Regex!
         const finColor = colors.fin;
 
@@ -340,7 +326,8 @@ export class KoiRenderer {
         ctx.restore();
 
         // 3. Eyes (Layer 2.5)
-        this.drawEyes(ctx, this.segments[0], transform);
+        this.drawEyes(ctx, this.segments[0], transform, isAlbino);
+
 
         // 4. Patterns (Layer 3) - SHAPES
         if (spots && spots.length > 0) {
@@ -355,6 +342,9 @@ export class KoiRenderer {
             }
             ctx.clip();
 
+            // Phenotype modifiers
+            const blur = phenotype ? phenotype.edgeBlur : 0.0;
+
             spots.forEach(spot => {
                 const segmentIndex = Math.floor((spot.y / 100) * this.segmentCount);
                 if (segmentIndex >= 0 && segmentIndex < this.segmentCount) {
@@ -367,12 +357,22 @@ export class KoiRenderer {
                     const spotY = s.y + Math.sin(perpAngle) * offsetX;
                     const p = transform(spotX, spotY);
 
-                    // User request: Size 100 = Body Diameter (Fill Width)
-                    // spotRadius = bodyRadius ensures Spot Diameter (2r) = Body Diameter (2r)
-                    const rawSpotRadius = (spot.size / 100) * radius;
-                    const spotRadius = rawSpotRadius;
+                    // Spot inherent size
+                    const spotRadius = (spot.size / 100) * radius;
 
+                    ctx.save();
                     ctx.fillStyle = spot.color;
+                    ctx.globalAlpha = 1.0;
+
+                    const saturation = phenotype ? (0.2 + phenotype.colorSaturation * 1.8) : 1.0;
+                    let filters: string[] = [];
+                    if (blur > 0.1) filters.push(`blur(${blur * 2.5 * this.scale}px)`);
+                    if (Math.abs(saturation - 1.0) > 0.01) filters.push(`saturate(${saturation * 100}%)`);
+
+                    if (filters.length > 0) {
+                        ctx.filter = filters.join(' ');
+                    }
+
                     ctx.beginPath();
 
                     // @ts-ignore
@@ -384,11 +384,14 @@ export class KoiRenderer {
                         // Align rotation with body segment
                         const rotationOffset = s.angle + Math.PI / 2;
 
+                        // Normalization Scale: 1.2x
+                        const normalizedRadius = spotRadius * 1.2;
+
                         for (let i = 0; i < 6; i++) {
                             const angle = (Math.PI * 2 / 6) * i + rotationOffset;
                             vertices.push({
-                                x: p.x + Math.cos(angle) * spotRadius,
-                                y: p.y + Math.sin(angle) * spotRadius
+                                x: p.x + Math.cos(angle) * normalizedRadius,
+                                y: p.y + Math.sin(angle) * normalizedRadius
                             });
                         }
 
@@ -421,6 +424,9 @@ export class KoiRenderer {
                         const spotSeed = (spot.x * 123.45 + spot.y * 678.91);
                         const rotationOffset = s.angle + Math.PI / 2;
 
+                        // Normalization Scale: 1.3x
+                        const normalizedRadius = spotRadius * 1.3;
+
                         const points: { x: number, y: number }[] = [];
 
                         // Generate jagged points first
@@ -428,10 +434,9 @@ export class KoiRenderer {
                             const angle = (Math.PI * 2 / pointsCount) * i + rotationOffset;
                             const seed = (i * 997 + spotSeed);
                             // Variance 0.8 to 1.2
-                            // Variance 0.8 to 1.2
                             const rVar = 1.0 + 0.2 * Math.sin(seed);
                             // Reduced size removed (User request: spots too small)
-                            const r = spotRadius * rVar;
+                            const r = normalizedRadius * rVar;
                             points.push({
                                 x: p.x + Math.cos(angle) * r,
                                 y: p.y + Math.sin(angle) * r
@@ -459,11 +464,12 @@ export class KoiRenderer {
                         const rotation = s.angle;
                         const spotSeed = (spot.x * 543.21 + spot.y * 123.45);
 
+                        // Normalization Scale: 1.3x
+                        const normalizedRadius = spotRadius * 1.3;
+
                         // Base dimensions (Slender)
-                        // Base dimensions (Slender)
-                        // Reduced size removed (User request: spots too small)
-                        const baseLen = spotRadius * 1.0;
-                        const baseWidth = spotRadius * 0.6;
+                        const baseLen = normalizedRadius * 1.0;
+                        const baseWidth = normalizedRadius * 0.6;
 
                         // 12 points is good for organic curves without too much jaggedness
                         const numPoints = 12;
@@ -519,6 +525,7 @@ export class KoiRenderer {
                     }
 
                     ctx.fill();
+                    ctx.restore();
                 }
             });
             ctx.restore();
@@ -665,7 +672,7 @@ export class KoiRenderer {
         ctx.restore();
     }
 
-    private drawEyes(ctx: CanvasRenderingContext2D, head: Segment, toLocal: (x: number, y: number) => { x: number, y: number }) {
+    private drawEyes(ctx: CanvasRenderingContext2D, head: Segment, toLocal: (x: number, y: number) => { x: number, y: number }, isAlbino: boolean = false) {
         const angle = head.angle;
         const headRadius = this.getRadius(0);
 
@@ -720,8 +727,8 @@ export class KoiRenderer {
         ctx.closePath();
         ctx.fill();
 
-        // Draw Pupil (Black) - FLATTENED
-        ctx.fillStyle = '#1a1a1a'; // Dark black/grey
+        // Draw Pupil (Black or Pink for Albino) - FLATTENED
+        ctx.fillStyle = isAlbino ? '#E53E3E' : '#1a1a1a'; // Red/Pink for Albino, Dark grey for normal
 
         // Left Eye Pupil
         ctx.beginPath();

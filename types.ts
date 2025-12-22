@@ -19,7 +19,6 @@ export enum SpotShape {
   HEXAGON = 'hexagon',
   POLYGON = 'polygon', // Renamed from BLOTCH
   OVAL_H = 'oval_h', // Horizontal Oval
-  OVAL_V = 'oval_v', // Vertical Oval
 }
 
 export interface Spot {
@@ -30,11 +29,64 @@ export interface Spot {
   shape: SpotShape;
 }
 
+// ============================================
+// Spot Phenotype Genetics System (10-Gene)
+// ============================================
+
+// 우성 유형
+export enum DominanceType {
+  COMPLETE = 'complete',           // 완전 우성
+  INCOMPLETE = 'incomplete',       // 불완전 우성
+  RECESSIVE = 'recessive',         // 열성
+  CODOMINANCE = 'codominance',     // 공우성
+}
+
+// 대립유전자
+export interface Allele {
+  value: number;                   // 0 ~ 100 (정수)
+  origin: 'maternal' | 'paternal';
+}
+
+// 유전자 쌍
+export interface GeneAlleles {
+  allele1: Allele;
+  allele2: Allele;
+  dominanceType: DominanceType;
+}
+
+// 2개 유전자 시스템 (간소화)
+export interface SpotPhenotypeGenes {
+  CS: GeneAlleles;  // Color Saturation - 색상 채도
+  EB: GeneAlleles;  // Edge Blur - 가장자리 흐림
+}
+
+// 표현형 (발현된 값)
+export interface SpotPhenotype {
+  colorSaturation: number;  // 0.0 ~ 1.0
+  edgeBlur: number;         // 0.0 ~ 1.0
+  activeTraits?: string[];
+}
+
+export interface GenerationalData {
+  generation: number;
+  ancestorTraits?: {
+    grandparent1?: Partial<SpotPhenotype>;
+    grandparent2?: Partial<SpotPhenotype>;
+  };
+}
+
 export interface KoiGenetics {
   baseColorGenes: GeneType[]; // Changed to array for unlimited polygenic system
   spots: Spot[];
   lightness: number; // For standard color variation (0-100), represents HSL lightness. 50 is standard red.
-  isTransparent: boolean; // New trait: Transparency modifier
+  saturation: number; // For standard color variation (0-100), represents HSL saturation. 50 is standard.
+
+  // Albino Morph: Recessive trait. Both alleles must be true for expression.
+  // [maternal, paternal] - true = albino allele, false = normal allele
+  albinoAlleles?: [boolean, boolean];
+
+  spotPhenotypeGenes?: SpotPhenotypeGenes;
+  generationalData?: GenerationalData;
 }
 
 export interface Koi {
@@ -46,7 +98,7 @@ export interface Koi {
   velocity: { vx: number; vy: number };
   age: number; // 0 to 100+
   size: number;
-  growthStage: 'fry' | 'juvenile' | 'adult';
+  growthStage: GrowthStage;
   timesFed: number;
   foodTargetId: number | null;
   feedCooldownUntil: number | null;
@@ -75,6 +127,7 @@ export enum PondTheme {
   DEFAULT = '기본 (맑은 물)',
   MUD = '진흙 바닥',
   MOSS = '이끼 낀 연못',
+  NIGHT = '밤 (달빛)',
 }
 
 export interface PondData {
@@ -98,3 +151,32 @@ export interface SavedGameState {
 }
 
 export type Ponds = Record<string, PondData>;
+
+// ============================================
+// Marketplace Types
+// ============================================
+
+export interface MarketplaceListing {
+  id: string; // Document ID
+  sellerId: string;
+  sellerNickname: string; // For display
+  koiData: Koi; // Full koi data
+  startPrice: number; // 시작가 (AP)
+  buyNowPrice?: number; // 즉시 구매가 (AP) - 없으면 즉시 구매 불가
+  currentBid: number; // 현재 최고 입찰가 (AP)
+  currentBidderId?: string | null; // 현재 최고 입찰자
+  currentBidderNickname?: string | null; // 현재 최고 입찰자 닉네임
+  bidCount?: number; // 총 입찰 수
+  createdAt: number; // Timestamp
+  expiresAt: number; // Timestamp
+  status: 'active' | 'sold' | 'expired' | 'cancelled';
+}
+
+export interface MarketplaceBid {
+  id: string;
+  listingId: string;
+  bidderId: string;
+  bidderNickname: string;
+  amount: number;
+  timestamp: number;
+}

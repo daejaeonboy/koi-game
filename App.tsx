@@ -16,6 +16,26 @@ import { Info, Store, X, Dna, DollarSign, Wheat, Volume2, VolumeX, Save, RotateC
 import { audioManager } from './utils/audio';
 import { ThemeModal } from './components/ThemeModal';
 import { CleanConfirmModal } from './components/CleanConfirmModal';
+import { SpotGeneticsDebugPanel } from './components/debug/SpotGeneticsDebugPanel';
+
+// --- New Feature Imports ---
+import { useAuth } from './contexts/AuthContext';
+import { AuthModal } from './components/AuthModal';
+import { startSession, listenToActiveDevice } from './services/session';
+import { saveGameToCloud, loadGameFromCloud } from './services/sync';
+import { SessionConflictModal } from './components/SessionConflictModal';
+import { APDisplay } from './components/APDisplay';
+import { AdRewardModal } from './components/AdRewardModal';
+import { AdType, getAdReward } from './services/ads';
+import { listenToAPBalance } from './services/points';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from './services/firebase';
+import { MarketplaceModal } from './components/MarketplaceModal';
+import { CreateListingModal } from './components/CreateListingModal';
+import { ListingDetailModal } from './components/ListingDetailModal';
+import { MarketplaceListing } from './types';
+import { FORCE_CLEAR_KEY, SAVE_GAME_KEY, clearLocalGameSaves, suppressLocalGameSave } from './services/localSave';
+import { ensureUserProfileNickname, updateUserNickname } from './services/profile';
 
 interface Animation {
   id: number;
@@ -31,10 +51,6 @@ const CORN_PACK_PRICE = 500; // Premium food
 const CORN_PACK_AMOUNT = 20; // Fewer quantity but 3x effect
 const MEDICINE_PRICE = 3000;
 const CLEANING_COST = 1000;
-const SAVE_GAME_KEY = 'zenKoiGardenSaveData_v2';
-const MANUAL_SAVE_KEY = 'zenKoiGardenManualSaveData';
-
-
 
 const loadGameState = (): SavedGameState | null => {
   try {
@@ -67,7 +83,6 @@ export const App: React.FC = () => {
     feedAnimations,
     addDecoration,
     setPondTheme,
-    isNight,
     resetPonds,
     handleFoodEaten,
     spawnKoi,
@@ -77,6 +92,7 @@ export const App: React.FC = () => {
     medicineCount,
     setMedicineCount,
     cureAllKoi,
+    renameKoi,
     moveKoi,
   } = useKoiPond(savedState ? { ponds: savedState.ponds, activePondId: savedState.activePondId } : undefined);
 
@@ -95,6 +111,28 @@ export const App: React.FC = () => {
   const [activeKoi, setActiveKoi] = useState<Koi | null>(null);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isCleanConfirmOpen, setIsCleanConfirmOpen] = useState(false);
+
+  // --- New Feature States ---
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const { user, loading: authLoading, logout: logoutFromContext } = useAuth();
+
+  // AP (Ad Points) State
+  const [adPoints, setAdPoints] = useState(0);
+  const [isAdModalOpen, setIsAdModalOpen] = useState(false);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [adWatchProgress, setAdWatchProgress] = useState(0);
+
+  // Marketplace State
+  const [isMarketplaceOpen, setIsMarketplaceOpen] = useState(false);
+  const [isCreateListingOpen, setIsCreateListingOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
+  const [marketplaceRefreshKey, setMarketplaceRefreshKey] = useState(0);
+
+  // Session & Sync State
+  const [isConflictOpen, setIsConflictOpen] = useState(false);
+  const [userNickname, setUserNickname] = useState<string>('');
+  const [isCloudSyncReady, setIsCloudSyncReady] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Game States
   const [zenPoints, setZenPoints] = useState(savedState?.zenPoints ?? (import.meta.env.DEV ? 10000 : 1000));
@@ -137,12 +175,63 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // --- Effects for New Features ---
+
+  // Auth check
   useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
-      return () => clearTimeout(timer);
+    if (!authLoading && !user) {
+      setIsAuthModalOpen(true);
     }
-  }, [notification]);
+  }, [user, authLoading]);
+
+  // Handle cross-tab logout/clear
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== FORCE_CLEAR_KEY) return;
+      if (!event.newValue) return;
+      suppressLocalGameSave();
+      clearLocalGameSaves();
+      window.location.reload();
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Load AP balance
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    if (user) {
+      unsubscribe = listenToAPBalance(user.uid, setAdPoints);
+    } else {
+      setAdPoints(0);
+    }
+    return () => unsubscribe && unsubscribe();
+  }, [user]);
+
+  // Load Nickname
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setUserNickname('');
+      return;
+    }
+    ensureUserProfileNickname(user.uid, user.displayName, user.email)
+      .then((nickname) => {
+        if (!cancelled) setUserNickname(nickname);
+      })
+      .catch((error) => console.error('Failed to load nickname:', error));
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const resolvedUserNickname = useMemo(() => {
+    const fromProfile = userNickname.trim();
+    if (fromProfile) return fromProfile;
+    const fromAuthDisplayName = user?.displayName?.trim();
+    if (fromAuthDisplayName) return fromAuthDisplayName;
+    const fromEmail = user?.email?.split('@')?.[0]?.trim();
+    if (fromEmail) return fromEmail;
+    return 'User';
+  }, [userNickname, user]);
 
   // Ref to hold latest state for periodic saving
   const gameStateRef = useRef<SavedGameState | null>(null);
@@ -173,18 +262,160 @@ export const App: React.FC = () => {
     return () => clearInterval(saveInterval);
   }, []);
 
+  // Session & Cloud Sync Logic
+  useEffect(() => {
+    let unsubscribeSession: (() => void) | undefined;
+    let cancelled = false;
+
+    const initSession = async () => {
+      let cloudReady = false;
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      if (!user) {
+        setIsCloudSyncReady(false);
+        return;
+      }
+      setIsCloudSyncReady(false);
+      try {
+        await startSession(user.uid);
+        if (cancelled) return;
+
+        unsubscribeSession = listenToActiveDevice(user.uid, () => {
+          setIsConflictOpen(true);
+        });
+
+        const cloudData = await loadGameFromCloud(user.uid);
+        if (cancelled) return;
+
+        cloudReady = true;
+        if (cloudData) {
+          handleLoadGame(cloudData);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Session init failed:", error);
+      } finally {
+        if (!cancelled) setIsCloudSyncReady(cloudReady);
+      }
+    };
+
+    initSession();
+    return () => {
+      cancelled = true;
+      if (unsubscribeSession) unsubscribeSession();
+    };
+  }, [user]);
+
+  // Periodic Save (Cloud + Local)
+  useEffect(() => {
+    const saveInterval = setInterval(async () => {
+      if (!gameStateRef.current) return;
+
+      // Local Save
+      try {
+        localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(gameStateRef.current));
+      } catch (e) { console.error("Local save failed:", e); }
+
+      // Cloud Save (Only if logged in and ready)
+      if (user && isCloudSyncReady) {
+        try {
+          await saveGameToCloud(user.uid, gameStateRef.current);
+        } catch (e) { console.error("Cloud save failed:", e); }
+      }
+    }, 5000);
+
+    return () => clearInterval(saveInterval);
+  }, [user, isCloudSyncReady]);
+
+  const handleSaveNickname = useCallback(async (nickname: string) => {
+    if (!user) return;
+    const trimmed = nickname.trim();
+    await updateUserNickname(user.uid, trimmed);
+    setUserNickname(trimmed);
+    setNotification({ message: '닉네임이 저장되었습니다.', type: 'success' });
+  }, [user]);
+
+  // Ad watching handler
+  const handleWatchAd = async (adType: AdType) => {
+    if (!user) {
+      setNotification({ message: '로그인이 필요합니다.', type: 'error' });
+      return;
+    }
+
+    setIsWatchingAd(true);
+    setAdWatchProgress(0);
+
+    const duration = adType === '15sec' ? 15000 : 30000;
+    const intervalMs = 100;
+    let elapsed = 0;
+
+    const progressInterval = setInterval(() => {
+      elapsed += intervalMs;
+      setAdWatchProgress((elapsed / duration) * 100);
+    }, intervalMs);
+
+    // Wait for ad duration (mock)
+    await new Promise(resolve => setTimeout(resolve, duration));
+
+    clearInterval(progressInterval);
+    setIsWatchingAd(false);
+    setAdWatchProgress(0);
+
+    // Award AP
+    const reward = getAdReward(adType);
+    try {
+      const callable = httpsCallable(functions, 'rewardAdPoints');
+      const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
+      await callable({
+        adType: adType === '15sec' ? '15s' : '30s',
+        verificationToken,
+      });
+      setNotification({ message: `+${reward} AP 획득!`, type: 'success' });
+    } catch (error) {
+      console.error('AP reward failed:', error);
+      setNotification({ message: 'AP 지급 실패', type: 'error' });
+    }
+
+    setIsAdModalOpen(false);
+  };
+
+  // Marketplace Handlers
+  const handleRenameKoi = (koiId: string, nextName: string) => {
+    renameKoi(koiId, nextName);
+  };
+
+  const handleListingCreated = () => {
+    setMarketplaceRefreshKey(prev => prev + 1);
+    setNotification({ message: '잉어를 장터에 등록했습니다!', type: 'success' });
+  };
+
+  const handleBuySuccess = (koi?: Koi) => {
+    if (koi) {
+      addKois([koi]);
+    }
+    setMarketplaceRefreshKey(prev => prev + 1);
+    setSelectedListing(null);
+    setNotification({ message: `잉어를 입양했습니다!`, type: 'success' });
+    audioManager.playSFX('purchase');
+  };
+
+  const handleCancelSuccess = () => {
+    setMarketplaceRefreshKey(prev => prev + 1);
+    setSelectedListing(null);
+    setNotification({ message: '판매 등록을 취소했습니다.', type: 'info' });
+  };
+
   const handleCleanPond = () => {
     const activePond = ponds[activePondId];
     if ((activePond?.waterQuality ?? 100) >= 100) {
       setNotification({ message: '수질이 이미 깨끗합니다!', type: 'error' });
       return;
     }
-
     setIsCleanConfirmOpen(true);
   };
 
   const confirmCleanPond = () => {
-    // Double check balance just in case
     if (zenPoints < CLEANING_COST) {
       setNotification({ message: `젠 포인트가 부족합니다! (${CLEANING_COST.toLocaleString()} P)`, type: 'error' });
       setIsCleanConfirmOpen(false);
@@ -205,6 +436,32 @@ export const App: React.FC = () => {
     setCornCount(loadedState.cornCount || 0);
     setKoiNameCounter(loadedState.koiNameCounter);
     setNotification({ message: "게임을 불러왔습니다.", type: 'success' });
+  };
+
+  const handleUpdateKoi = (koiId: string, updates: { genetics?: Partial<KoiGenetics>; growthStage?: GrowthStage }) => {
+    setPonds((prev: Ponds) => {
+      const activePond = prev[activePondId];
+      if (!activePond) return prev;
+
+      const updatedKois = activePond.kois.map(k => {
+        if (k.id === koiId) {
+          return {
+            ...k,
+            genetics: updates.genetics ? { ...k.genetics, ...updates.genetics } : k.genetics,
+            growthStage: updates.growthStage !== undefined ? updates.growthStage : k.growthStage,
+            // Update size if growth stage changed
+            size: updates.growthStage === GrowthStage.FRY ? 4 : (updates.growthStage === GrowthStage.JUVENILE ? 8 : 12),
+          };
+        }
+        return k;
+      });
+
+      return {
+        ...prev,
+        [activePondId]: { ...activePond, kois: updatedKois }
+      };
+    });
+    setNotification({ message: '코이 정보가 업데이트되었습니다.', type: 'success' });
   };
 
   const handleSell = useCallback((koi: Koi) => {
@@ -330,7 +587,7 @@ export const App: React.FC = () => {
       baseColorGenes: genes,
       spots: [],
       lightness: 50, // Special morphs have a default lightness, though it won't be visible
-      isTransparent: false,
+      saturation: 50,
     };
 
     const newKoi: Koi = {
@@ -485,7 +742,7 @@ export const App: React.FC = () => {
       // Background click clears selection
       setBreedingSelection([]);
     }
-  }, [isFeedModeActive, breedingSelection, foodCount, cornCount, medicineCount, selectedFoodType, dropFood, isNight, setFoodCount, setCornCount, setMedicineCount, cureAllKoi, audioManager, setNotification, setFoodDropAnimations]);
+  }, [isFeedModeActive, breedingSelection, foodCount, cornCount, medicineCount, selectedFoodType, dropFood, setFoodCount, setCornCount, setMedicineCount, cureAllKoi, audioManager, setNotification, setFoodDropAnimations]);
 
   const handleToggleFeedMode = () => {
     setBreedingSelection([]);
@@ -541,34 +798,26 @@ export const App: React.FC = () => {
             feedAnimations={feedAnimations}
             foodDropAnimations={foodDropAnimations}
             foodPellets={foodPellets}
-            onFoodEaten={(...args) => {
-              audioManager.playSFX('eat');
-              handleFoodEaten(...args);
-            }}
-            isNight={isNight}
+            onFoodEaten={handleFoodEaten}
+            isNight={false}
             waterQuality={waterQuality}
           />
         </div>
-
-
-        {/* Night Overlay - does not block interaction */}
-        <div
-          className={`absolute inset-0 bg-indigo-900/60 pointer-events-none transition-opacity duration-1000 ${isNight ? 'opacity-100' : 'opacity-0'}`}
-          style={{ mixBlendMode: 'multiply' }}
-        />
       </main>
 
       {/* Notification Toast */}
-      {notification && (
-        <div
-          className={`absolute top-10 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-xl font-bold transition-all duration-300 ${notification.type === 'error'
-            ? 'bg-white text-red-600 border-2 border-red-600'
-            : 'bg-white text-black border border-gray-300'
-            }`}
-        >
-          {notification.message}
-        </div>
-      )}
+      {
+        notification && (
+          <div
+            className={`absolute top-10 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-xl font-bold transition-all duration-300 ${notification.type === 'error'
+              ? 'bg-white text-red-600 border-2 border-red-600'
+              : 'bg-white text-black border border-gray-300'
+              }`}
+          >
+            {notification.message}
+          </div>
+        )
+      }
 
       <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-4 z-20 flex flex-col gap-2">
         <div className="bg-gray-900/60 backdrop-blur-sm p-3 rounded-lg border border-gray-700/50">
@@ -589,6 +838,12 @@ export const App: React.FC = () => {
       </div>
 
       <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 z-20 flex items-center gap-2">
+        {/* Ad Point Display */}
+        <APDisplay
+          ap={adPoints}
+          onAdClick={() => setIsAdModalOpen(true)}
+        />
+
         <button
           onClick={() => setIsSaveLoadModalOpen(true)}
           className="bg-gray-900/40 backdrop-blur-sm p-3 rounded-full border border-white/10 text-white hover:text-yellow-400 transition-colors hover:bg-gray-800/60 hover:border-white/20"
@@ -607,55 +862,57 @@ export const App: React.FC = () => {
         </button>
       </div>
 
-      {breedingSelection.length > 0 && (
-        <div className="absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 w-full max-w-xs px-4">
+      {
+        breedingSelection.length > 0 && (
+          <div className="absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 w-full max-w-xs px-4">
 
-          {/* Selection Indicators */}
-          <div className="flex items-center gap-2 bg-gray-900/70 backdrop-blur-md border border-gray-700/50 rounded-full p-2 shadow-lg">
-            {selectedKoisForBreeding.map(k => {
-              const phenotype = getPhenotype(k.genetics.baseColorGenes);
-              const bgColor = getDisplayColor(phenotype, k.genetics.lightness);
-              return (
-                <div key={k.id} className="w-8 h-8 rounded-full border-2 border-purple-400" style={{ backgroundColor: bgColor }}></div>
-              )
-            })}
-          </div>
+            {/* Selection Indicators */}
+            <div className="flex items-center gap-2 bg-gray-900/70 backdrop-blur-md border border-gray-700/50 rounded-full p-2 shadow-lg">
+              {selectedKoisForBreeding.map(k => {
+                const phenotype = getPhenotype(k.genetics.baseColorGenes);
+                const bgColor = getDisplayColor(phenotype, k.genetics.lightness, k.genetics.saturation);
+                return (
+                  <div key={k.id} className="w-8 h-8 rounded-full border-2 border-purple-400" style={{ backgroundColor: bgColor }}></div>
+                )
+              })}
+            </div>
 
-          <div className="flex flex-col gap-2 w-full">
-            {/* Breed Button - Only if exactly 2 selected */}
-            {breedingSelection.length === 2 && (
+            <div className="flex flex-col gap-2 w-full">
+              {/* Breed Button - Only if exactly 2 selected */}
+              {breedingSelection.length === 2 && (
+                <button
+                  onClick={handleMultiParentBreed}
+                  disabled={!canBreed}
+                  className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition-all hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
+                >
+                  <Dna size={18} />
+                  교배 ({BREEDING_COST} ZP)
+                </button>
+              )}
+
+              {/* Sell Button - Always visible if selection > 0 */}
               <button
-                onClick={handleMultiParentBreed}
-                disabled={!canBreed}
-                className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition-all hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
+                onClick={() => handleSellSelected(selectedKoisForBreeding)}
+                className="w-full flex items-center justify-center gap-2 bg-red-600 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition-all hover:bg-red-500 text-sm"
               >
-                <Dna size={18} />
-                교배 ({BREEDING_COST} ZP)
+                <DollarSign size={18} />
+                판매 (+{totalSellValue} ZP)
               </button>
-            )}
 
-            {/* Sell Button - Always visible if selection > 0 */}
-            <button
-              onClick={() => handleSellSelected(selectedKoisForBreeding)}
-              className="w-full flex items-center justify-center gap-2 bg-red-600 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition-all hover:bg-red-500 text-sm"
-            >
-              <DollarSign size={18} />
-              판매 (+{totalSellValue} ZP)
-            </button>
-
-            {/* Warning Message for disabled breeding - Below Sell Button */}
-            {breedingSelection.length === 2 && !canBreed && (
-              <div className="text-red-400 text-xs text-center font-bold bg-black/50 p-1 rounded">
-                {selectedKoisForBreeding.some(k => k.growthStage !== GrowthStage.ADULT)
-                  ? "성체 코이만 교배 가능합니다."
-                  : selectedKoisForBreeding.some(k => (k.stamina ?? 0) < 30)
-                    ? "체력이 부족합니다. (최소 30)"
-                    : "젠 포인트가 부족합니다."}
-              </div>
-            )}
+              {/* Warning Message for disabled breeding - Below Sell Button */}
+              {breedingSelection.length === 2 && !canBreed && (
+                <div className="text-red-400 text-xs text-center font-bold bg-black/50 p-1 rounded">
+                  {selectedKoisForBreeding.some(k => k.growthStage !== GrowthStage.ADULT)
+                    ? "성체 코이만 교배 가능합니다."
+                    : selectedKoisForBreeding.some(k => (k.stamina ?? 0) < 30)
+                      ? "체력이 부족합니다. (최소 30)"
+                      : "젠 포인트가 부족합니다."}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       <ControlBar
         onShopClick={() => {
@@ -678,54 +935,60 @@ export const App: React.FC = () => {
           audioManager.playSFX('click');
           setIsThemeModalOpen(true);
         }}
+        onMarketplaceClick={() => {
+          if (!user) {
+            setNotification({ message: '로그인이 필요합니다.', type: 'error' });
+            setIsAuthModalOpen(true);
+            return;
+          }
+          audioManager.playSFX('click');
+          setIsMarketplaceOpen(true);
+        }}
       />
 
-      {isShopModalOpen && (
-        <ShopModal
-          onClose={() => setIsShopModalOpen(false)}
-          zenPoints={zenPoints}
-          onBuyFood={handleBuyFood}
-          onBuyCorn={handleBuyCorn}
-          onBuyMedicine={handleBuyMedicine}
-          onBuyKoi={handleBuyKoi}
-          onBuyPond={handleBuyPondExpansion}
-          pondCount={Object.keys(ponds).length}
-        />
-      )}
-      {isThemeModalOpen && (
-        <ThemeModal
-          onClose={() => setIsThemeModalOpen(false)}
-          zenPoints={zenPoints}
-          currentTheme={currentTheme}
-          onSelectTheme={(theme, cost) => {
-            // Theme logic handles cost but here we assume free or handled
-            setPondTheme(theme);
-            setIsThemeModalOpen(false);
-          }}
-        />
-      )}
-      {isCleanConfirmOpen && (
-        <CleanConfirmModal
-          onClose={() => setIsCleanConfirmOpen(false)}
-          onConfirm={confirmCleanPond}
-          cost={CLEANING_COST}
-          zenPoints={zenPoints}
-        />
-      )}
+      {
+        isShopModalOpen && (
+          <ShopModal
+            onClose={() => setIsShopModalOpen(false)}
+            zenPoints={zenPoints}
+            onBuyFood={handleBuyFood}
+            onBuyCorn={handleBuyCorn}
+            onBuyMedicine={handleBuyMedicine}
+            onBuyKoi={handleBuyKoi}
+            onBuyPond={handleBuyPondExpansion}
+            pondCount={Object.keys(ponds).length}
+          />
+        )
+      }
+      {
+        isThemeModalOpen && (
+          <ThemeModal
+            onClose={() => setIsThemeModalOpen(false)}
+            zenPoints={zenPoints}
+            currentTheme={currentTheme}
+            onSelectTheme={(theme, cost) => {
+              // Theme logic handles cost but here we assume free or handled
+              setPondTheme(theme);
+              setIsThemeModalOpen(false);
+            }}
+          />
+        )
+      }
+      {
+        isCleanConfirmOpen && (
+          <CleanConfirmModal
+            onClose={() => setIsCleanConfirmOpen(false)}
+            onConfirm={confirmCleanPond}
+            cost={CLEANING_COST}
+            zenPoints={zenPoints}
+          />
+        )
+      }
       {/* {isSettingsModalOpen && <SettingsModal onClose={() => setIsSettingsModalOpen(false)} />} Removed */}
       <SaveLoadModal
         isOpen={isSaveLoadModalOpen}
         onClose={() => setIsSaveLoadModalOpen(false)}
-        currentGameState={{
-          ponds,
-          activePondId,
-          zenPoints,
-          foodCount,
-          cornCount,
-          koiNameCounter,
-        }}
-        onLoad={handleLoadGame}
-        onReset={() => {
+        onNewGame={async () => {
           localStorage.removeItem(SAVE_GAME_KEY);
           localStorage.removeItem('zenPoints');
           resetPonds();
@@ -734,86 +997,204 @@ export const App: React.FC = () => {
           setCornCount(0);
           setKoiNameCounter(3);
           window.location.reload();
+          return true;
         }}
-        onThemeClick={() => {
-          audioManager.playSFX('click');
-          setIsThemeModalOpen(true);
+        onLogoutCleanup={() => {
+          setZenPoints(1000);
+          resetPonds();
         }}
+        isNight={false}
+        onToggleDayNight={() => { }}
+        userNickname={resolvedUserNickname}
+        onSaveNickname={handleSaveNickname}
       />
-      {activeKoi && <KoiDetailModal
-        koi={activeKoi}
-        totalKoiCount={koiList.length}
-        onClose={() => setActiveKoi(null)}
-        onSell={(koi) => {
-          handleSell(koi);
-          setActiveKoi(null);
-        }}
-      />}
-      {isPondInfoModalOpen && <PondInfoModal
-        onClose={() => setIsPondInfoModalOpen(false)}
-        ponds={ponds}
-        activePondId={activePondId}
-        onPondChange={setActivePondId}
-        koiList={koiList}
-        zenPoints={zenPoints}
-        onKoiSelect={(koi) => {
-          setActiveKoi(koi);
-          setIsPondInfoModalOpen(false);
-        }}
-        onSell={handleSellSelected}
-        onBreed={handleBreedKois}
-        onMove={(kois, targetPondId) => {
-          moveKoi(kois.map(k => k.id), targetPondId);
-          setIsPondInfoModalOpen(false);
-          setNotification({ message: '코이들이 새로운 연못으로 이사했습니다!', type: 'success' });
-        }}
-      />}
-      {isInfoModalOpen && (
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setIsInfoModalOpen(false)}>
-          <div className="bg-gray-800 p-6 rounded-lg max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-gray-700 shadow-xl custom-scrollbar" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-cyan-300">젠 코이 가든</h2>
-              <button onClick={() => setIsInfoModalOpen(false)} className="text-gray-400 hover:text-white"><X /></button>
-            </div>
-            <p className="text-gray-300 mb-4">당신만의 평온한 코이 연못에 오신 것을 환영합니다. 아름다운 코이를 키우고, 교배하여 새로운 품종을 발견하세요.</p>
-            <div className="space-y-3 text-gray-400">
-              <p><strong className="text-white">교배:</strong> 연못의 코이를 클릭하여 교배할 부모를 선택하세요. 밝은 코이끼리 교배하면 흰색에, 어두운 코이끼리 교배하면 검은색에 가까운 자손을 얻을 수 있습니다. 성체 코이만 교배할 수 있습니다. 교배 후에도 부모는 사라지지 않습니다.</p>
-              <p><strong className="text-white">성장:</strong> <Wheat size={16} className="inline-block" /> 먹이주기 모드를 활성화하고 연못 바닥을 클릭하여 먹이를 주세요. 치어는 성체로 성장합니다.</p>
-              <p><strong className="text-white">판매:</strong> <DollarSign size={16} className="inline-block" /> 연못 현황 목록에서 코이를 선택하여 판매하고 젠 포인트를 얻으세요. 희귀한 색상이나 특별한 품종을 교배하고 더 많이 성장시킨 코이일수록 높은 가치를 가집니다.</p>
-              <p><strong className="text-white">상점:</strong> <ShoppingCart size={16} className="inline-block" /> 상점에서 먹이를 구매하여 코이를 성장시키세요.</p>
-              <p><strong className="text-white">저장:</strong> 게임 진행 상황은 당신의 브라우저에 자동으로 저장됩니다. 언제든지 다시 돌아와 연못을 돌보세요.</p>
+      {
+        activeKoi && <KoiDetailModal
+          koi={activeKoi}
+          totalKoiCount={koiList.length}
+          onClose={() => setActiveKoi(null)}
+          onSell={(koi) => {
+            handleSell(koi);
+            setActiveKoi(null);
+          }}
+        />
+      }
+      {
+        isPondInfoModalOpen && <PondInfoModal
+          onClose={() => setIsPondInfoModalOpen(false)}
+          ponds={ponds}
+          activePondId={activePondId}
+          onPondChange={setActivePondId}
+          koiList={koiList}
+          zenPoints={zenPoints}
+          onKoiSelect={(koi) => {
+            setActiveKoi(koi);
+            setIsPondInfoModalOpen(false);
+          }}
+          onSell={handleSellSelected}
+          onBreed={handleBreedKois}
+          onMove={(kois, targetPondId) => {
+            moveKoi(kois.map(k => k.id), targetPondId);
+            setIsPondInfoModalOpen(false);
+            setNotification({ message: '코이들이 새로운 연못으로 이사했습니다!', type: 'success' });
+          }}
+          onRenameKoi={handleRenameKoi}
+        />
+      }
+      {
+        isInfoModalOpen && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setIsInfoModalOpen(false)}>
+            <div className="bg-gray-800 p-6 rounded-lg max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-gray-700 shadow-xl custom-scrollbar" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-cyan-300">젠 코이 가든</h2>
+                <button onClick={() => setIsInfoModalOpen(false)} className="text-gray-400 hover:text-white"><X /></button>
+              </div>
+              <p className="text-gray-300 mb-4">당신만의 평온한 코이 연못에 오신 것을 환영합니다. 아름다운 코이를 키우고, 교배하여 새로운 품종을 발견하세요.</p>
+              <div className="space-y-3 text-gray-400">
+                <p><strong className="text-white">교배:</strong> 연못의 코이를 클릭하여 교배할 부모를 선택하세요. 밝은 코이끼리 교배하면 흰색에, 어두운 코이끼리 교배하면 검은색에 가까운 자손을 얻을 수 있습니다. 성체 코이만 교배할 수 있습니다. 교배 후에도 부모는 사라지지 않습니다.</p>
+                <p><strong className="text-white">성장:</strong> <Wheat size={16} className="inline-block" /> 먹이주기 모드를 활성화하고 연못 바닥을 클릭하여 먹이를 주세요. 치어는 성체로 성장합니다.</p>
+                <p><strong className="text-white">판매:</strong> <DollarSign size={16} className="inline-block" /> 연못 현황 목록에서 코이를 선택하여 판매하고 젠 포인트를 얻으세요. 희귀한 색상이나 특별한 품종을 교배하고 더 많이 성장시킨 코이일수록 높은 가치를 가집니다.</p>
+                <p><strong className="text-white">상점:</strong> <ShoppingCart size={16} className="inline-block" /> 상점에서 먹이를 구매하여 코이를 성장시키세요.</p>
+                <p><strong className="text-white">저장:</strong> 게임 진행 상황은 당신의 브라우저에 자동으로 저장됩니다. 언제든지 다시 돌아와 연못을 돌보세요.</p>
 
-              <div className="mt-4 pt-4 border-t border-gray-700">
-                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                  <Dna size={18} className="text-cyan-400" /> 열성 유전자 가이드
-                </h3>
-                <div className="text-sm space-y-3 bg-gray-900/50 p-3 rounded border border-gray-700 text-gray-300">
-                  <p>
-                    <span className="text-yellow-400 font-bold block mb-1">🔍 숨겨진 색상 (Recessive Genes)</span>
-                    코이는 겉으로 보이는 색 외에도 <strong className="text-white">수많은 숨겨진 색상 유전자</strong>를 가질 수 있습니다.
-                    상세 정보창에서 코이가 보유한 모든 유전자 목록을 확인할 수 있습니다.
-                  </p>
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <h3 className="text-white font-bold mb-2 flex items-center gap-2">
+                    <Dna size={18} className="text-cyan-400" /> 열성 유전자 가이드
+                  </h3>
+                  <div className="text-sm space-y-3 bg-gray-900/50 p-3 rounded border border-gray-700 text-gray-300">
+                    <p>
+                      <span className="text-yellow-400 font-bold block mb-1">🔍 숨겨진 색상 (Recessive Genes)</span>
+                      코이는 겉으로 보이는 색 외에도 <strong className="text-white">수많은 숨겨진 색상 유전자</strong>를 가질 수 있습니다.
+                      상세 정보창에서 코이가 보유한 모든 유전자 목록을 확인할 수 있습니다.
+                    </p>
 
-                  <p>
-                    <span className="text-cyan-400 font-bold block mb-1">🎨 색상 발현 규칙</span>
-                    특정 색상이 눈에 보이려면, 그 색상의 유전자를 <strong className="text-white">최소 2개 이상</strong> 가지고 있어야 합니다.
-                    <br />
-                    <span className="text-xs text-gray-500 mt-1 block">예: [빨강, 빨강] → 빨강 발현 / [빨강, 검정] → 크림색(기본)</span>
-                  </p>
+                    <p>
+                      <span className="text-cyan-400 font-bold block mb-1">🎨 색상 발현 규칙</span>
+                      특정 색상이 눈에 보이려면, 그 색상의 유전자를 <strong className="text-white">최소 2개 이상</strong> 가지고 있어야 합니다.
+                      <br />
+                      <span className="text-xs text-gray-500 mt-1 block">예: [빨강, 빨강] → 빨강 발현 / [빨강, 검정] → 크림색(기본)</span>
+                    </p>
 
-                  <p>
-                    <span className="text-purple-400 font-bold block mb-1">🧬 유전과 변이</span>
-                    자손은 부모의 유전자를 무작위로 물려받습니다.
-                    가끔 <strong className="text-white">새로운 유전자가 추가</strong>되거나 돌연변이가 발생하여 유전자 풀이 점점 넓어집니다.
-                    다양한 코이를 교배하여 숨겨진 희귀 색상을 찾아보세요!
-                  </p>
+                    <p>
+                      <span className="text-purple-400 font-bold block mb-1">🧬 유전과 변이</span>
+                      자손은 부모의 유전자를 무작위로 물려받습니다.
+                      가끔 <strong className="text-white">새로운 유전자가 추가</strong>되거나 돌연변이가 발생하여 유전자 풀이 점점 넓어집니다.
+                      다양한 코이를 교배하여 숨겨진 희귀 색상을 찾아보세요!
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onGuestPlay={() => setIsAuthModalOpen(false)}
+      />
+
+      <MarketplaceModal
+        isOpen={isMarketplaceOpen}
+        onClose={() => setIsMarketplaceOpen(false)}
+        currentUserId={user?.uid}
+        userAP={adPoints}
+        refreshKey={marketplaceRefreshKey}
+        onSelectListing={setSelectedListing}
+        onCreateListingClick={() => setIsCreateListingOpen(true)}
+      />
+
+      {
+        isCreateListingOpen && (
+          <CreateListingModal
+            isOpen={isCreateListingOpen}
+            onClose={() => setIsCreateListingOpen(false)}
+            kois={koiList}
+            userId={user?.uid || ''}
+            userNickname={resolvedUserNickname}
+            onListingCreated={handleListingCreated}
+          />
+        )
+      }
+
+      {
+        selectedListing && (
+          <ListingDetailModal
+            listing={selectedListing}
+            onClose={() => setSelectedListing(null)}
+            currentUserId={user?.uid}
+            userNickname={resolvedUserNickname}
+            userAP={adPoints}
+            onBuySuccess={handleBuySuccess}
+            onCancelSuccess={handleCancelSuccess}
+          />
+        )
+      }
+
+      <AdRewardModal
+        isOpen={isAdModalOpen}
+        onClose={() => setIsAdModalOpen(false)}
+        currentAP={adPoints}
+        onWatchAd={handleWatchAd}
+        isWatching={isWatchingAd}
+        watchProgress={adWatchProgress}
+      />
+
+      <SessionConflictModal
+        isOpen={isConflictOpen}
+        onResolve={() => {
+          if (user) {
+            startSession(user.uid).then(() => {
+              setIsConflictOpen(false);
+              setNotification({ message: '세션이 복구되었습니다.', type: 'success' });
+            });
+          }
+        }}
+        onLogout={async () => {
+          suppressLocalGameSave();
+          try {
+            await logoutFromContext();
+          } finally {
+            window.location.reload();
+          }
+        }}
+      />
+
+      {/* Spot Genetics Debug Panel - shows first selected koi's genes */}
+      <SpotGeneticsDebugPanel
+        koi={selectedKoisForBreeding[0] || null}
+        zenPoints={zenPoints}
+        onSetZenPoints={(points) => setZenPoints(points)}
+        onSpawnKoi={(genetics, growthStage) => {
+          // Create new koi with custom genetics and growth stage
+          const newKoi: Koi = {
+            id: crypto.randomUUID(),
+            name: `코이`,
+            description: '디버그 패널에서 생성된 코이입니다.',
+            genetics: {
+              baseColorGenes: genetics.baseColorGenes || [GeneType.CREAM, GeneType.CREAM],
+              spots: genetics.spots || [],
+              lightness: genetics.lightness ?? 50,
+              saturation: genetics.saturation ?? 50,
+
+              spotPhenotypeGenes: genetics.spotPhenotypeGenes,
+            },
+            position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
+            velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
+            size: growthStage === GrowthStage.FRY ? 4 : (growthStage === GrowthStage.JUVENILE ? 8 : 12),
+            age: growthStage === GrowthStage.FRY ? 0 : (growthStage === GrowthStage.JUVENILE ? 50 : 100),
+            growthStage: growthStage || GrowthStage.FRY,
+            timesFed: 0,
+            foodTargetId: null,
+            feedCooldownUntil: null,
+            stamina: 100,
+          };
+          addKois([newKoi]);
+          setNotification({ message: '새로운 코이가 생성되었습니다.', type: 'success' });
+        }}
+        onUpdateKoi={handleUpdateKoi}
+      />
+    </div >
   );
 };

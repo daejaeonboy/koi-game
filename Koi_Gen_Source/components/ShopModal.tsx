@@ -1,0 +1,232 @@
+import React, { useState } from 'react';
+import { X, ShoppingCart, Minus, Plus, Dna, Pill } from 'lucide-react';
+import { GENE_COLOR_MAP } from '../utils/genetics';
+import { GeneType } from '../types';
+
+interface IconProps {
+    size?: number;
+    className?: string;
+}
+
+const CornIcon = ({ size = 24, className = "" }: IconProps) => (
+    <div
+        className={`bg-current ${className}`}
+        style={{
+            width: size,
+            height: size,
+            maskImage: "url('/corn.png')",
+            maskSize: "contain",
+            maskRepeat: "no-repeat",
+            maskPosition: "center",
+            WebkitMaskImage: "url('/corn.png')",
+            WebkitMaskSize: "contain",
+            WebkitMaskRepeat: "no-repeat",
+            WebkitMaskPosition: "center",
+        }}
+    />
+);
+
+const FeedIcon = ({ size = 24, className = "" }: IconProps) => (
+    <div
+        className={`bg-current ${className}`}
+        style={{
+            width: size,
+            height: size,
+            maskImage: "url('/feed.png')",
+            maskSize: "contain",
+            maskRepeat: "no-repeat",
+            maskPosition: "center",
+            WebkitMaskImage: "url('/feed.png')",
+            WebkitMaskSize: "contain",
+            WebkitMaskRepeat: "no-repeat",
+            WebkitMaskPosition: "center",
+        }}
+    />
+);
+
+interface ShopModalProps {
+    onClose: () => void;
+    zenPoints: number;
+    onBuyFood: (quantity: number) => void;
+    onBuyCorn: (quantity: number) => void;
+    onBuyMedicine: (quantity: number) => void;
+
+    onBuyKoi: (color: GeneType) => void;
+    onBuyPond: () => void;
+    pondCount: number;
+}
+
+const FOOD_PACK_PRICE = 200;
+const CORN_PACK_PRICE = 500;
+const MEDICINE_PRICE = 3000;
+const RARE_KOI_PRICE = 30000;
+
+const ShopItem: React.FC<{
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+    price: number;
+    onBuy: (quantity: number) => void;
+    canAfford: (quantity: number) => boolean;
+    hasQuantity?: boolean;
+    disabled?: boolean;
+    disabledReason?: string;
+}> = ({ icon, title, description, price, onBuy, canAfford, hasQuantity = false, disabled = false, disabledReason }) => {
+    const [quantity, setQuantity] = useState(1);
+
+    const handleQuantityChange = (delta: number) => {
+        setQuantity(prev => Math.max(1, Math.min(99, prev + delta)));
+    };
+
+    const currentPrice = price * quantity;
+    const affordable = canAfford(quantity);
+
+    return (
+        <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex flex-col">
+            <div className="flex items-center gap-3">
+                <div className="text-cyan-300">{icon}</div>
+                <div className="flex-grow">
+                    <h3 className="text-base font-semibold text-white">{title}</h3>
+                    <p className="text-xs text-gray-400 mt-1">{description}</p>
+                </div>
+            </div>
+
+            {hasQuantity && (
+                <div className="flex items-center justify-between mt-3 bg-gray-800 rounded-lg p-1">
+                    <button
+                        onClick={() => handleQuantityChange(-1)}
+                        className="p-1 text-gray-400 hover:text-white disabled:opacity-50"
+                        disabled={quantity <= 1}
+                    >
+                        <Minus size={16} />
+                    </button>
+                    <span className="text-white font-bold">{quantity}</span>
+                    <button
+                        onClick={() => handleQuantityChange(1)}
+                        className="p-1 text-gray-400 hover:text-white disabled:opacity-50"
+                        disabled={quantity >= 99}
+                    >
+                        <Plus size={16} />
+                    </button>
+                </div>
+            )}
+
+            <div className="text-base font-bold text-yellow-400 mt-2 text-right">
+                {currentPrice.toLocaleString()} ZP
+            </div>
+            <button
+                onClick={() => onBuy(quantity)}
+                disabled={!affordable || disabled}
+                className="mt-2 w-full bg-yellow-600 text-white font-bold py-2 rounded-lg flex items-center justify-center transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed enabled:hover:bg-yellow-500"
+            >
+                {disabled && disabledReason ? disabledReason : "구매하기"}
+            </button>
+        </div>
+    );
+};
+
+
+export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyFood, onBuyCorn, onBuyMedicine, onBuyKoi, onBuyPond, pondCount }) => {
+
+    return (
+        <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-4 w-full max-w-sm animate-fade-in-up max-h-[85vh] overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-yellow-400 flex items-center">
+                        <ShoppingCart className="mr-3" />
+                        상점
+                    </h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <div className="text-right text-lg text-yellow-300 mb-4">
+                    보유 포인트: <span className="font-bold">{zenPoints.toLocaleString()} ZP</span>
+                </div>
+
+                <div className="space-y-3">
+                    <ShopItem
+                        icon={<FeedIcon size={40} className="text-yellow-100" />}
+                        title="기본 사료 (50개)"
+                        description="가장 기본적인 물고기 사료입니다."
+                        price={FOOD_PACK_PRICE}
+                        onBuy={(q) => onBuyFood(q)}
+                        canAfford={(q) => zenPoints >= FOOD_PACK_PRICE * q}
+                        hasQuantity={true}
+                    />
+                    <ShopItem
+                        icon={<CornIcon size={40} className="text-yellow-300" />}
+                        title="프리미엄 옥수수 (20개)"
+                        description="일반 먹이보다 3배 효과! 코이가 빠르게 성장합니다."
+                        price={CORN_PACK_PRICE}
+                        onBuy={(q) => onBuyCorn(q)}
+                        canAfford={(q) => zenPoints >= CORN_PACK_PRICE * q}
+                        hasQuantity={true}
+                    />
+                    <ShopItem
+                        icon={<Pill size={40} className="text-green-400" />}
+                        title="치료제"
+                        description="병든 코이를 치료합니다. (개당)"
+                        price={MEDICINE_PRICE}
+                        onBuy={(q) => onBuyMedicine(q)}
+                        canAfford={(q) => zenPoints >= MEDICINE_PRICE * q}
+                        hasQuantity={true}
+                    />
+                    <ShopItem
+                        icon={<div className="text-purple-400 font-bold border-2 border-purple-400 rounded p-1 w-10 h-10 flex items-center justify-center">+</div>}
+                        title="연못 확장권"
+                        description="새로운 연못을 추가합니다. (최대 4개)"
+                        price={20000}
+                        onBuy={() => onBuyPond()}
+                        canAfford={() => zenPoints >= 20000}
+                        hasQuantity={false}
+                        disabled={pondCount >= 4}
+                        disabledReason={pondCount >= 4 ? "최대 보유량 도달" : undefined}
+                    />
+                </div>
+
+                <div className="mt-6 border-t border-gray-700 pt-4">
+                    <h3 className="text-xl font-bold text-pink-400 mb-3 flex items-center">
+                        <Dna className="mr-2" size={24} />
+                        특별한 코이
+                    </h3>
+                    <div className="space-y-3">
+                        {[
+                            { color: GeneType.CREAM, name: "기본 크림 코이", price: 500, desc: "가장 기본적인 코이입니다." },
+                            { color: GeneType.YELLOW, name: "골든 코이", price: 30000, desc: "순수한 골든 코이 유전자를 가진 아기 코이입니다." },
+                            { color: GeneType.RED, name: "블러드 코이", price: 30000, desc: "순수한 블러드 코이 유전자를 가진 아기 코이입니다." },
+                            { color: GeneType.ORANGE, name: "오렌지 코이", price: 30000, desc: "순수한 오렌지 코이 유전자를 가진 아기 코이입니다." },
+                            { color: GeneType.WHITE, name: "플레티넘 코이", price: 30000, desc: "순수한 플레티넘 코이 유전자를 가진 아기 코이입니다." },
+                            { color: GeneType.BLACK, name: "멜라니스틱 코이", price: 30000, desc: "순수한 멜라니스틱 코이 유전자를 가진 아기 코이입니다." },
+                        ].map((item) => (
+                            <div key={item.color} className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex flex-col">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="w-10 h-10 rounded-full border-2 border-gray-600 shadow-md transform hover:scale-110 transition-transform duration-300"
+                                        style={{ backgroundColor: GENE_COLOR_MAP[item.color] as string }}
+                                    ></div>
+                                    <div className="flex-grow">
+                                        <h3 className="text-base font-semibold text-white">{item.name}</h3>
+                                        <p className="text-xs text-gray-400 mt-1">{item.desc}</p>
+                                    </div>
+                                </div>
+                                <div className="text-base font-bold text-yellow-400 mt-2 text-right">
+                                    {item.price.toLocaleString()} ZP
+                                </div>
+                                <button
+                                    onClick={() => onBuyKoi(item.color)}
+                                    disabled={zenPoints < item.price}
+                                    className={`mt-2 w-full text-white font-bold py-2 rounded-lg flex items-center justify-center transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed ${item.price === 500 ? 'bg-gray-600 hover:bg-gray-500' : 'bg-pink-600 hover:bg-pink-500'
+                                        }`}
+                                >
+                                    입양하기
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

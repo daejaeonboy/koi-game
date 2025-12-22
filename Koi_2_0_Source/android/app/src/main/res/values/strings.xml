@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Zen Koi Garden</string>
+    <string name="title_activity_main">Zen Koi Garden</string>
+    <string name="package_name">com.zenkoigarden.game</string>
+    <string name="custom_url_scheme">com.zenkoigarden.game</string>
+</resources>

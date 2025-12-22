@@ -410,6 +410,7 @@ export const App: React.FC = () => {
   };
 
   const handleListingCreated = (koiId: string) => {
+    console.log('[Marketplace] Listing created for koi:', koiId, '. Removing from pond...');
     removeKoi(koiId);
     setMarketplaceRefreshKey(prev => prev + 1);
     setNotification({ message: '잉어를 장터에 등록했습니다!', type: 'success' });

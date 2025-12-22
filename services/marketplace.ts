@@ -78,6 +78,7 @@ export const createListing = async (
     startPrice: number,
     buyNowPrice?: number,
 ): Promise<string> => {
+    console.log('[Marketplace] Creating listing for koi:', koi.id);
     const now = Date.now();
     const expiresAt = now + 3 * 24 * 60 * 60 * 1000; // 3일
     const koiData = sanitizeForFirestore(koi);
@@ -98,8 +99,15 @@ export const createListing = async (
         status: 'active',
     };
 
-    const docRef = await addDoc(getMarketplaceItemsCollection(), listingData);
-    return docRef.id;
+    try {
+        console.log('[Marketplace] Submitting to Firestore...');
+        const docRef = await addDoc(getMarketplaceItemsCollection(), listingData);
+        console.log('[Marketplace] Listing created with ID:', docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error('[Marketplace] Error adding document:', error);
+        throw error;
+    }
 };
 
 // 입찰 (문서 생성 → Cloud Function onBidCreate가 검증/처리)

@@ -464,11 +464,6 @@ export const App: React.FC = () => {
 
   // Ad watching handler
   const handleWatchAd = async (adType: AdType) => {
-    if (!user) {
-      setNotification({ message: '로그인이 필요합니다.', type: 'error' });
-      return;
-    }
-
     setIsWatchingAd(true);
     setAdWatchProgress(0); // Not used anymore but kept state
 
@@ -479,23 +474,32 @@ export const App: React.FC = () => {
       setIsWatchingAd(false);
 
       if (success) {
-        // Award AP
-        // For now, regardless of button clicked (15s/30s), we give a standard reward or based on adType if passed properly
-        // To support old logic in Cloud Functions, we might map 'reward' back to '30s' or just '15s'
-        const rewardAmount = 500; // Fixed high reward for real ads for now
+        // Award AP locally first (works without login)
+        const rewardAmount = getAdReward('15sec'); // 200 AP
 
-        const callable = httpsCallable(functions, 'rewardAdPoints');
-        const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
+        // Grant AP locally
+        setAdPoints(prev => prev + rewardAmount);
 
-        await callable({
-          adType: '30s', // Generic high reward
-          verificationToken,
-        });
+        // Try to sync to cloud if logged in (fire and forget)
+        if (user) {
+          try {
+            const callable = httpsCallable(functions, 'rewardAdPoints');
+            const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
+
+            await callable({
+              adType: '15sec',
+              verificationToken,
+            });
+          } catch (cloudError) {
+            console.error('Cloud sync failed (AP still granted locally):', cloudError);
+          }
+        }
 
         setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
+        setIsAdModalOpen(false); // Close modal after success
       } else {
-        // Using alert might be too intrusive, notification is better or just silent if user closed
-        // setNotification({ message: '광고 시청이 완료되지 않았습니다.', type: 'info' });
+        // Ad was not fully watched or dismissed
+        setNotification({ message: '광고 시청이 완료되지 않았습니다.', type: 'error' });
       }
     } catch (error) {
       console.error('Ad watch failed:', error);

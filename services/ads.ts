@@ -68,14 +68,14 @@ export const showRewardAd = async (): Promise<boolean> => {
         return new Promise((resolve) => {
             const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+            // Use mock ad system if adBreak is not available or if we want to force it
+            // For now, let's allow a fallback to mock if adBreak is not ready
             if (typeof window.adBreak !== 'function') {
-                console.warn('[AdService] adBreak function not found. Is AdSense script loaded?');
-                if (isLocal) {
-                    console.log('[AdService] Localhost detected - Simulating ad reward after delay.');
-                    setTimeout(() => resolve(true), 1500);
-                } else {
-                    resolve(false);
-                }
+                console.log('[AdService] adBreak function not found or pending. Using mock ad (15s)...');
+                setTimeout(() => {
+                    console.log('[AdService] Mock ad completed.');
+                    resolve(true);
+                }, 15000);
                 return;
             }
 

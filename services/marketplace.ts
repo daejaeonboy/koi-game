@@ -15,6 +15,15 @@ import { MarketplaceListing, Koi } from '../types';
 
 const MARKETPLACE_ITEMS_PATH = ['marketplace', 'listings', 'items'] as const;
 
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+        )
+    ]);
+};
+
 const getMarketplaceItemsCollection = () => collection(db, ...MARKETPLACE_ITEMS_PATH);
 
 // Firestore는 undefined 값을 허용하지 않으므로, 판매 등록 전에 undefined 필드를 제거합니다.
@@ -55,6 +64,8 @@ export const fetchActiveListings = (onUpdate: (listings: MarketplaceListing[]) =
             listings.push(toMarketplaceListing(docSnap.id, docSnap.data()));
         });
         onUpdate(listings);
+    }, (error) => {
+        console.error('[Marketplace] fetchActiveListings error:', error);
     });
 };
 
@@ -67,6 +78,8 @@ export const listenToListing = (listingId: string, onUpdate: (listing: Marketpla
         }
 
         onUpdate(toMarketplaceListing(snap.id, snap.data()));
+    }, (error) => {
+        console.error('[Marketplace] listenToListing error:', error);
     });
 };
 
@@ -78,7 +91,7 @@ export const createListing = async (
     startPrice: number,
     buyNowPrice?: number,
 ): Promise<string> => {
-    console.log('[Marketplace] Creating listing for koi:', koi.id);
+    console.log('[Marketplace] START: createListing for koi:', koi.id);
     const now = Date.now();
     const expiresAt = now + 3 * 24 * 60 * 60 * 1000; // 3일
     const koiData = sanitizeForFirestore(koi);
@@ -100,12 +113,19 @@ export const createListing = async (
     };
 
     try {
-        console.log('[Marketplace] Submitting to Firestore...');
-        const docRef = await addDoc(getMarketplaceItemsCollection(), listingData);
-        console.log('[Marketplace] Listing created with ID:', docRef.id);
+        console.log('[Marketplace] Submitting to Firestore (10s timeout)...');
+        const docRef = await withTimeout(
+            addDoc(getMarketplaceItemsCollection(), listingData),
+            10000,
+            '서버 응답 시간 초과 (10초). 네트워크 연결을 확인해주세요.'
+        );
+        console.log('[Marketplace] SUCCESS: Listing created ID:', docRef.id);
         return docRef.id;
-    } catch (error) {
-        console.error('[Marketplace] Error adding document:', error);
+    } catch (error: any) {
+        console.error('[Marketplace] FAILED: createListing:', error);
+        if (error.code === 'permission-denied') {
+            throw new Error('권한이 없습니다. 보안 규칙을 확인해주세요.');
+        }
         throw error;
     }
 };
@@ -118,25 +138,50 @@ export const placeBid = async (
     amount: number,
 ) => {
     const bidsCol = collection(db, ...MARKETPLACE_ITEMS_PATH, listingId, 'bids');
-    await addDoc(bidsCol, {
-        bidderId,
-        bidderNickname,
-        amount,
-        timestamp: Timestamp.fromMillis(Date.now()),
-    });
+    await withTimeout(
+        addDoc(bidsCol, {
+            bidderId,
+            bidderNickname,
+            amount,
+            timestamp: Timestamp.fromMillis(Date.now()),
+        }),
+        10000,
+        '입찰 요청 시간 초과'
+    );
 };
 
 // 즉시 구매 (Cloud Function)
 export const buyNowListing = async (listingId: string) => {
+    console.log('[Marketplace] START: buyNowListing:', listingId);
     const callable = httpsCallable(functions, 'onBuyNow');
-    const result = await callable({ listingId });
-    return result.data as any;
+    try {
+        const result = await withTimeout(
+            callable({ listingId }),
+            15000,
+            '구매 요청 시간 초과'
+        );
+        return result.data as any;
+    } catch (error) {
+        console.error('[Marketplace] FAILED: buyNowListing:', error);
+        throw error;
+    }
 };
 
 // 판매 취소 (Cloud Function)
 export const cancelListing = async (listingId: string) => {
+    console.log('[Marketplace] START: cancelListing:', listingId);
     const callable = httpsCallable(functions, 'onCancelListing');
-    const result = await callable({ listingId });
-    return result.data as any;
+    try {
+        const result = await withTimeout(
+            callable({ listingId }),
+            15000,
+            '취소 요청 시간 초과'
+        );
+        console.log('[Marketplace] SUCCESS: cancelListing result:', result.data);
+        return result.data as any;
+    } catch (error) {
+        console.error('[Marketplace] FAILED: cancelListing:', error);
+        throw error;
+    }
 };
 

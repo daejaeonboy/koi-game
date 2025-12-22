@@ -62,9 +62,11 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
             await createListing(userId, userNickname, selectedKoi, buyNowPriceNum, buyNowPriceNum);
             onListingCreated(selectedKoiId);
             onClose();
-        } catch (e) {
-            console.error(e);
-            setError("판매 등록 중 오류가 발생했습니다.");
+        } catch (e: any) {
+            console.error('[Marketplace] Error during submission:', e);
+            // 에러 메시지가 있으면 우선적으로 사용하고, 없으면 기본 메시지 사용
+            const errorMessage = e?.message || "판매 등록 중 오류가 발생했습니다.";
+            setError(errorMessage);
         } finally {
             setIsSubmitting(false);
         }

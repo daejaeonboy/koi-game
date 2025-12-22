@@ -577,7 +577,12 @@ const GENE_INTERACTIONS: Record<keyof SpotPhenotypeGenes, GeneInteraction[]> = {
 const HIDDEN_ACTIVATION_THRESHOLD = 3;
 
 const applyImprinting = (allele: Allele, geneId: keyof SpotPhenotypeGenes): number => {
-    const config = IMPRINTING_CONFIG[geneId];
+    // Backward compatibility: map 'EB' to 'ES' if somehow passed
+    const id = (geneId as string) === 'EB' ? 'ES' : geneId;
+    const config = IMPRINTING_CONFIG[id as keyof SpotPhenotypeGenes];
+
+    if (!config) return allele.value; // Safety fallback
+
     const bias = allele.origin === 'maternal' ? config.maternalBias : config.paternalBias;
     return allele.value * bias;
 };
@@ -669,16 +674,20 @@ export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes | undefined, ko
             activeTraits: []
         };
     }
-    const geneIds = Object.keys(genes) as (keyof SpotPhenotypeGenes)[];
+    const geneIds = Object.keys(genes);
     const expressed: Record<keyof SpotPhenotypeGenes, number> = {} as any;
 
     geneIds.forEach(id => {
-        expressed[id] = expressGene(genes[id], id);
+        // Map old 'EB' key to new 'ES' key for processing
+        const targetId = id === 'EB' ? 'ES' : id;
+        if (targetId === 'CS' || targetId === 'ES') {
+            expressed[targetId as keyof SpotPhenotypeGenes] = expressGene(genes[id as keyof SpotPhenotypeGenes], targetId as keyof SpotPhenotypeGenes);
+        }
     });
 
     const afterInteractions = applyGeneInteractions(expressed);
-    let CS = afterInteractions.CS;
-    let ES = afterInteractions.ES;
+    let CS = afterInteractions.CS ?? 70; // Default fallback
+    let ES = afterInteractions.ES ?? 70; // Default fallback
 
     if (checkHiddenRecessiveActivation(genes)) {
         CS = Math.min(100, CS * 1.2);

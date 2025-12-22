@@ -124,7 +124,7 @@ export const App: React.FC = () => {
   const { user, loading: authLoading, logout: logoutFromContext } = useAuth();
 
   // AP (Ad Points) State
-  const [adPoints, setAdPoints] = useState(savedState?.adPoints ?? 500);
+  const [adPoints, setAdPoints] = useState(savedState?.adPoints ?? 400);
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [adWatchProgress, setAdWatchProgress] = useState(0);
@@ -585,7 +585,8 @@ export const App: React.FC = () => {
     localStorage.removeItem(SAVE_GAME_KEY);
     localStorage.removeItem('zenPoints');
     resetPonds();
-    setZenPoints(import.meta.env.DEV ? 10000 : 1000);
+    setZenPoints(import.meta.env.DEV ? 10000 : 2000);
+    setAdPoints(400);
     setFoodCount(20);
     setCornCount(0);
     setKoiNameCounter(3);
@@ -594,7 +595,8 @@ export const App: React.FC = () => {
   };
 
   const handleLogoutCleanup = () => {
-    setZenPoints(1000);
+    setZenPoints(2000);
+    setAdPoints(400);
     resetPonds();
   };
 

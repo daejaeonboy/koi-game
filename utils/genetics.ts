@@ -159,10 +159,10 @@ export const calculateKoiValue = (koi: Koi): number => {
 };
 
 const SPOT_COLOR_MUTATION_CHANCE = 0.05;
-const SIZE_MUTATION_AMOUNT = 4;
+const SIZE_MUTATION_AMOUNT = 5; // Variation in spot size during breeding (Not related to koi size)
 const LIGHTNESS_MUTATION_CHANCE = 0.2;
 const LIGHTNESS_MUTATION_AMOUNT = 5;
-const BASE_COLOR_MUTATION_CHANCE = 0;
+const BASE_COLOR_MUTATION_CHANCE = 0.01;
 const SPECIAL_MUTATION_CHANCE = 0;
 
 const createNewRandomSpot = (preferredColor?: GeneType): Spot => {
@@ -340,12 +340,7 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
             ? calculateSpotPhenotype(genetics2.spotPhenotypeGenes)
             : undefined;
 
-        const parentGen1 = genetics1.generationalData?.generation ?? 0;
-        const parentGen2 = genetics2.generationalData?.generation ?? 0;
-        const newGeneration = Math.max(parentGen1, parentGen2) + 1;
-
         childGenerationalData = {
-            generation: newGeneration,
             ancestorTraits: {
                 grandparent1: parent1Phenotype ? {
                     colorSaturation: parent1Phenotype.colorSaturation,

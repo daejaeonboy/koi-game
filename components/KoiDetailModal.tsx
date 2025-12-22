@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Koi } from '../types';
-import { X, DollarSign } from 'lucide-react';
+import { X, DollarSign, Pencil, Check } from 'lucide-react';
 import { calculateKoiValue, GENE_COLOR_MAP, calculateSpotPhenotype } from '../utils/genetics';
 import { SingleKoiCanvas } from './SingleKoiCanvas';
 
@@ -8,19 +8,44 @@ interface KoiDetailModalProps {
     koi: Koi;
     onClose: () => void;
     onSell: (koi: Koi) => void;
+    onRename?: (id: string, nextName: string) => void;
     totalKoiCount: number;
     hideActions?: boolean;
 }
 
-export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, onSell, totalKoiCount, hideActions }) => {
+export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, onSell, onRename, totalKoiCount, hideActions }) => {
     const sellValue = calculateKoiValue(koi);
     const canSell = totalKoiCount > 2;
     const spotPhenotype = calculateSpotPhenotype(koi.genetics.spotPhenotypeGenes, koi);
+
+    const albinoAlleles = koi.genetics.albinoAlleles || [false, false];
+    const isAlbino = albinoAlleles[0] && albinoAlleles[1];
+
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [nameDraft, setNameDraft] = useState(koi.name);
+    const [nameError, setNameError] = useState<string | null>(null);
 
     const handleSell = () => {
         if (!canSell) return;
         onSell(koi);
         onClose();
+    };
+
+    const handleCommitRename = () => {
+        const trimmed = nameDraft.trim();
+        if (!trimmed) {
+            setNameError('이름을 입력해주세요.');
+            return;
+        }
+        if (trimmed.length > 20) {
+            setNameError('이름은 20자 이하로 입력해주세요.');
+            return;
+        }
+        if (onRename) {
+            onRename(koi.id, trimmed);
+        }
+        setIsEditingName(false);
+        setNameError(null);
     };
 
     return (
@@ -32,14 +57,59 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
 
                 <div className="space-y-4">
                     <div className="text-center">
-                        <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
-                            {koi.name}
-                            {(koi.stamina ?? 100) <= 10 && (
-                                <span className="text-xs bg-red-900/50 text-red-400 border border-red-500/50 px-2 py-0.5 rounded-full animate-pulse">
-                                    병듦
-                                </span>
+                        <div className="flex flex-col items-center">
+                            {isEditingName ? (
+                                <div className="flex flex-col items-center gap-2 mb-2 w-full">
+                                    <div className="flex items-center gap-1 w-full">
+                                        <input
+                                            value={nameDraft}
+                                            onChange={(e) => {
+                                                setNameDraft(e.target.value);
+                                                setNameError(null);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleCommitRename();
+                                                if (e.key === 'Escape') setIsEditingName(false);
+                                            }}
+                                            autoFocus
+                                            className="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-white text-lg font-bold text-center focus:border-cyan-500 focus:outline-none"
+                                            maxLength={20}
+                                        />
+                                        <button
+                                            onClick={handleCommitRename}
+                                            className="p-2 rounded bg-cyan-700 hover:bg-cyan-600 text-white"
+                                        >
+                                            <Check size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => setIsEditingName(false)}
+                                            className="p-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-400"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                    {nameError && <p className="text-red-400 text-xs">{nameError}</p>}
+                                </div>
+                            ) : (
+                                <h2
+                                    className="text-2xl font-bold text-white flex items-center justify-center gap-2 mb-1 group cursor-pointer hover:text-cyan-300 transition-colors"
+                                    onClick={() => !hideActions && setIsEditingName(true)}
+                                >
+                                    {koi.name}
+                                    {!hideActions && <Pencil size={16} className="text-gray-500 group-hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all" />}
+                                    {(koi.stamina ?? 100) <= 10 && (
+                                        <span className="text-xs bg-red-900/50 text-red-400 border border-red-500/50 px-2 py-0.5 rounded-full animate-pulse font-normal">
+                                            병듦
+                                        </span>
+                                    )}
+                                    {isAlbino && (
+                                        <span className="text-xs bg-pink-500/20 text-pink-300 border border-pink-500/50 px-2 py-0.5 rounded-full font-normal">
+                                            알비노
+                                        </span>
+                                    )}
+                                </h2>
                             )}
-                        </h2>
+                        </div>
                         <span className="text-sm font-semibold bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full">
                             {koi.growthStage === 'fry' ? '치어' : koi.growthStage === 'juvenile' ? '준성체' : '성체'}
                         </span>
@@ -58,6 +128,14 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
                                     {gene}
                                 </span>
                             ))}
+                            {(koi.genetics.albinoAlleles || []).map((isAc, geneIdx) => isAc && (
+                                <span key={`albino-${geneIdx}`}
+                                    className="text-xs px-2 py-1 rounded-full border border-pink-500/30 bg-pink-900/40 text-pink-200 flex items-center gap-1 font-bold"
+                                    title="Albino Allele"
+                                >
+                                    알비노
+                                </span>
+                            ))}
                         </div>
                         <div className="mt-3 space-y-1">
                             <div className="flex items-center justify-between text-xs bg-gray-800/50 p-1.5 rounded">
@@ -70,6 +148,7 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
                             <div className="flex items-center justify-between text-xs bg-gray-800/50 p-1.5 rounded">
                                 <span className="text-gray-500 font-bold w-12 text-center border-r border-gray-700 mr-2">무늬</span>
                                 <div className="flex flex-1 justify-around">
+                                    <span>점: <span className="text-cyan-300">{koi.genetics.spots.length}개</span></span>
                                     <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
                                     <span>선명도: <span className="text-purple-300">{((1 - spotPhenotype.edgeBlur) * 100).toFixed(0)}%</span></span>
                                 </div>
@@ -78,7 +157,7 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
                     </div>
 
                     <div className="bg-blue-900/30 p-2 rounded-lg border border-gray-700 flex items-center justify-center overflow-hidden">
-                        <SingleKoiCanvas koi={koi} width={350} height={200} />
+                        <SingleKoiCanvas koi={koi} width={350} height={200} isStatic={true} />
                     </div>
 
                     {!hideActions && (

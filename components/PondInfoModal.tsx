@@ -17,9 +17,9 @@ const KoiListItem: React.FC<{
   const [nameDraft, setNameDraft] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const phenotype = getPhenotype(koi.genetics.baseColorGenes);
-
-  // Logic matching Koi.tsx
-  const bodyColor = getDisplayColor(phenotype, koi.genetics.lightness, koi.genetics.saturation);
+  const albinoAlleles = koi.genetics.albinoAlleles || [false, false];
+  const isAlbino = albinoAlleles[0] && albinoAlleles[1];
+  const bodyColor = getDisplayColor(phenotype as any, koi.genetics.lightness, koi.genetics.saturation, isAlbino);
   const spotPhenotype = calculateSpotPhenotype(koi.genetics.spotPhenotypeGenes, koi);
 
   const rarityScore = calculateRarityScore(koi);
@@ -178,7 +178,12 @@ const KoiListItem: React.FC<{
           <span className="text-gray-400">점: <span className="text-cyan-300 font-bold">{koi.genetics.spots.length}개</span></span>
           <span className="text-gray-700">|</span>
           <span className="text-gray-400">유전자:</span>
-          <span className="text-cyan-300">{koi.genetics.baseColorGenes.join(' / ')}</span>
+          <span className="text-cyan-300">
+            {[
+              ...koi.genetics.baseColorGenes,
+              ...(koi.genetics.albinoAlleles || []).filter(a => a).map(() => '알비노')
+            ].join(' / ')}
+          </span>
         </div>
       </div>
 

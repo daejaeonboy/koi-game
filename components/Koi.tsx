@@ -36,7 +36,12 @@ export const Koi: React.FC<KoiProps> = ({ koi, onClick, isSelected }) => {
         if (ctx && currentKoi) {
           // Get colors from genetics (calculated here to ensure latest state)
           const phenotype = getPhenotype(currentKoi.genetics.baseColorGenes);
-          const bodyColor = getDisplayColor(phenotype, currentKoi.genetics.lightness, currentKoi.genetics.isTransparent, currentKoi.genetics.saturation);
+          const bodyColor = getDisplayColor(
+            phenotype,
+            currentKoi.genetics.lightness,
+            currentKoi.genetics.saturation,
+            !!(currentKoi.genetics.albinoAlleles?.[0] && currentKoi.genetics.albinoAlleles?.[1])
+          );
 
           const colors = {
             outline: 'rgba(255, 255, 255, 0.15)',
@@ -94,7 +99,7 @@ export const Koi: React.FC<KoiProps> = ({ koi, onClick, isSelected }) => {
         // Initial position from props, then updated by ref in animation loop
         left: `${koi.position.x}%`,
         top: `${koi.position.y}%`,
-        transform: `translate(-50%, -50%) scale(${koi.size / 12})`,
+        transform: `translate(-50%, -50%) scale(${koi.growthStage === 'fry' ? 0.4 : koi.growthStage === 'juvenile' ? 0.7 : 1.0})`,
         transition: 'none', // Disable CSS transition to allow smooth JS control
         width: '0px',
         height: '0px',

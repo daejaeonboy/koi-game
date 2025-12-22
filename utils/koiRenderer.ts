@@ -58,6 +58,22 @@ export class KoiRenderer {
         this.scaleStartTime = Date.now();
     }
 
+    /**
+     * 코이를 특정 위치에 특정 각도로 즉시 일직선으로 배치합니다. (정지 화면용)
+     */
+    public forceStaticState(x: number, y: number, angle: number) {
+        this.spacing = this.baseSpacing * this.scale;
+        this.segments = [];
+        for (let i = 0; i < this.segmentCount; i++) {
+            this.segments.push({
+                x: x - Math.cos(angle) * i * this.spacing,
+                y: y - Math.sin(angle) * i * this.spacing,
+                angle: angle
+            });
+        }
+        this.initialized = true;
+    }
+
     private getRadius(index: number): number {
         const t = index / (this.segmentCount - 1);
         const peakPoint = 0.25;

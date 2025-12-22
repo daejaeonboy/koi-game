@@ -12,7 +12,9 @@ interface ListingCardProps {
 export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, isOwner }) => {
     const { koiData, expiresAt, currentBid, buyNowPrice } = listing;
     const phenotype = getPhenotype(koiData.genetics.baseColorGenes);
-    const bgColor = getDisplayColor(phenotype, koiData.genetics.lightness, koiData.genetics.isTransparent, koiData.genetics.saturation);
+    const albinoAlleles = koiData.genetics.albinoAlleles || [false, false];
+    const isAlbino = albinoAlleles[0] && albinoAlleles[1];
+    const bgColor = getDisplayColor(phenotype as any, koiData.genetics.lightness, koiData.genetics.saturation, isAlbino);
     const spots = koiData.genetics.spots || [];
 
     // Calculate time left
@@ -71,8 +73,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, isOw
             {/* Info */}
             <div className="space-y-1">
                 <div className="flex justify-between items-start">
-                    <h3 className="text-white text-sm font-bold truncate max-w-[70%]">{koiData.name}</h3>
-                    <span className="text-xs text-cyan-400 font-medium">Gen.{koiData.genetics.generationalData?.generation || 1}</span>
+                    <h3 className="text-white text-sm font-bold truncate">{koiData.name}</h3>
                 </div>
 
                 <div className="text-xs text-gray-400 truncate">
@@ -87,13 +88,8 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, isOw
                     </div>
                     <div className="flex flex-col items-end leading-none">
                         <div className="text-yellow-400 font-bold text-lg">
-                            {currentBid.toLocaleString()} <span className="text-xs">AP</span>
+                            {buyNowPrice?.toLocaleString() ?? currentBid.toLocaleString()} <span className="text-xs">AP</span>
                         </div>
-                        {typeof buyNowPrice === 'number' && buyNowPrice > 0 && (
-                            <div className="text-[10px] text-gray-400 mt-1">
-                                즉구 {buyNowPrice.toLocaleString()} AP
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

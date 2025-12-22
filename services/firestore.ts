@@ -80,6 +80,7 @@ export async function createUserDocument(
                 food: 10,
                 corn: 0,
                 medicine: 0,
+                honorPoints: 0,    // 명예 트로피 초기값
                 theme: '기본 (맑은 물)' as any, // PondTheme.DEFAULT
                 pondCapacity: 10,
             },
@@ -160,7 +161,33 @@ export async function updateLastLogin(userId: string): Promise<void> {
             'profile.lastLogin': serverTimestamp(),
         });
     } catch (error) {
-        console.error('Error updating last login:', error);
+        console.error('Error updating lastLogin:', error);
+        throw error;
+    }
+}
+
+/**
+ * 랭킹 목록 가져오기 (명예 트로피 기준)
+ */
+export async function getTopRankings(limitCount: number = 20): Promise<FirestoreUserDocument[]> {
+    try {
+        const usersRef = collection(db, 'users');
+        const q = query(
+            usersRef,
+            orderBy('gameData.honorPoints', 'desc'),
+            limit(limitCount)
+        );
+        const querySnap = await getDocs(q);
+
+        const rankings: FirestoreUserDocument[] = [];
+        querySnap.forEach((doc) => {
+            const data = doc.data() as FirestoreUserDocument;
+            rankings.push({ ...data, uid: doc.id });
+        });
+
+        return rankings;
+    } catch (error) {
+        console.error('Error getting rankings:', error);
         throw error;
     }
 }

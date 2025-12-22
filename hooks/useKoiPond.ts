@@ -5,9 +5,6 @@ import { audioManager } from '../utils/audio';
 
 const POINTS_TO_JUVENILE = 10;
 const POINTS_TO_ADULT = 20;
-const JUVENILE_SIZE = 4;
-const ADULT_SIZE = 7;
-const PERFECT_SIZE = 10;
 const EATING_DISTANCE = 2;
 const FEED_COOLDOWN_MS = 3000;
 
@@ -59,7 +56,6 @@ const createInitialPonds = (): Ponds => {
             },
             position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
             velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
-            size: ADULT_SIZE,
             age: 100,
             growthStage: GrowthStage.ADULT,
             timesFed: 0,
@@ -104,7 +100,6 @@ const createInitialPonds = (): Ponds => {
             },
             position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
             velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
-            size: ADULT_SIZE,
             age: 100,
             growthStage: GrowthStage.ADULT,
             timesFed: 0,
@@ -349,7 +344,6 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                 },
                 position: { x: 50, y: 50 }, // Center spawn
                 velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
-                size: JUVENILE_SIZE,
                 age: 0,
                 growthStage: GrowthStage.FRY,
                 timesFed: 0,
@@ -486,9 +480,9 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
 
                     // Growth Logic (Legacy direct feed)
                     if (k.growthStage === GrowthStage.FRY && newTimesFed >= POINTS_TO_JUVENILE) {
-                        return { ...k, timesFed: 0, growthStage: GrowthStage.JUVENILE, size: JUVENILE_SIZE, ...newCooldown, stamina: newStamina };
+                        return { ...k, timesFed: 0, growthStage: GrowthStage.JUVENILE, ...newCooldown, stamina: newStamina };
                     } else if (k.growthStage === GrowthStage.JUVENILE && newTimesFed >= POINTS_TO_ADULT) {
-                        return { ...k, timesFed: 0, growthStage: GrowthStage.ADULT, size: ADULT_SIZE, ...newCooldown, stamina: newStamina };
+                        return { ...k, timesFed: 0, growthStage: GrowthStage.ADULT, ...newCooldown, stamina: newStamina };
                     }
                     return { ...k, timesFed: newTimesFed, ...newCooldown, stamina: newStamina };
                 }
@@ -547,7 +541,6 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                             ...k,
                             timesFed: 0, // Reset counter for next stage
                             growthStage: GrowthStage.JUVENILE,
-                            size: JUVENILE_SIZE,
                             foodTargetId: null,
                             ...newCooldown,
                             stamina: newStamina
@@ -558,7 +551,6 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                             ...k,
                             timesFed: 0, // Reset counter (maxed out)
                             growthStage: GrowthStage.ADULT,
-                            size: ADULT_SIZE,
                             foodTargetId: null,
                             ...newCooldown,
                             stamina: newStamina

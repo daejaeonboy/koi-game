@@ -28,8 +28,8 @@ type MinifiedSpot = [number, number, number, number, number];
 // Genetics: [ [baseGenes...], [spots...], lightness, saturation ]
 type MinifiedGenetics = [number[], MinifiedSpot[], number, number];
 
-// Koi: [id, name, genetics, age, size, growthStageIdx, timesFed, x, y] (Last 2: pos)
-type MinifiedKoi = [string, string, MinifiedGenetics, number, number, number, number, number, number];
+// Koi: [id, name, genetics, age, growthStageIdx, timesFed, x, y] (Last 2: pos)
+type MinifiedKoi = [string, string, MinifiedGenetics, number, number, number, number, number];
 
 // Pond: [id, name, themeIdx, [kois...], waterQuality] 
 type MinifiedPond = [string, string, number, MinifiedKoi[], number];
@@ -68,7 +68,6 @@ export const compressGameStateAsync = async (state: SavedGameState): Promise<str
                 koi.name,
                 minGenetics,
                 koi.age,
-                round(koi.size),
                 stageIdx,
                 koi.timesFed,
                 round(koi.position.x),
@@ -115,7 +114,7 @@ export const compressGameStateAsync = async (state: SavedGameState): Promise<str
         const CHUNK_SIZE = 8192; // Process in 8KB chunks
         for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
             const chunk = bytes.subarray(i, i + CHUNK_SIZE);
-            binary += String.fromCharCode(...chunk);
+            binary += String.fromCharCode.apply(null, Array.from(chunk) as any);
         }
 
         // Mark as Compressed with a prefix to distinguish from plain JSON
@@ -160,7 +159,7 @@ export const decompressGameStateAsync = async (code: string): Promise<SavedGameS
             const [id, name, themeIdx, minKois, waterQuality] = p;
 
             const kois: Koi[] = minKois.map(mk => {
-                const [kid, kname, mGen, kAge, kSize, kStageIdx, kFed, kx, ky] = mk;
+                const [kid, kname, mGen, kAge, kStageIdx, kFed, kx, ky] = mk;
                 const [mGenes, mSpots, kLight, kSaturation] = mGen;
 
                 const baseColorGenes = mGenes.map(idx => GENE_MAP[idx] || GeneType.CREAM);
@@ -187,7 +186,6 @@ export const decompressGameStateAsync = async (code: string): Promise<SavedGameS
                     position: { x: kx, y: ky },
                     velocity: { vx: 0, vy: 0 },
                     age: kAge,
-                    size: kSize,
                     growthStage: growthStages[kStageIdx] || GrowthStage.FRY,
                     timesFed: kFed,
                     foodTargetId: null,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FilePlus, LogOut, Menu, Moon, Music, RotateCcw, Speaker, Sun, User, X } from 'lucide-react';
+import { FilePlus, Menu, Moon, Music, RotateCcw, Settings, Speaker, Sun, User, X } from 'lucide-react';
 import { audioManager } from '../utils/audio';
 import { useAuth } from '../contexts/AuthContext';
 import { broadcastForceClear, resumeLocalGameSave, suppressLocalGameSave } from '../services/localSave';
@@ -8,32 +8,22 @@ interface SaveLoadModalProps {
     isOpen: boolean;
     onClose: () => void;
     onNewGame: () => Promise<boolean>;
-    onLogoutCleanup: () => void;
     isNight: boolean;
     onToggleDayNight: () => void;
-    userNickname?: string;
-    onSaveNickname?: (nickname: string) => Promise<void>;
 }
 
 export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
     isOpen,
     onClose,
     onNewGame,
-    onLogoutCleanup,
     isNight,
     onToggleDayNight,
-    userNickname,
-    onSaveNickname,
 }) => {
     const [activeTab, setActiveTab] = useState<'settings' | 'new'>('settings');
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [sfxVolume, setSfxVolume] = useState(0.5);
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isStartingNewGame, setIsStartingNewGame] = useState(false);
-    const [nicknameInput, setNicknameInput] = useState('');
-    const [isSavingNickname, setIsSavingNickname] = useState(false);
-    const [nicknameError, setNicknameError] = useState<string | null>(null);
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
 
     useEffect(() => {
         if (!isOpen) return;
@@ -42,11 +32,6 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
         setSfxVolume(vols.sfx);
     }, [isOpen]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        setNicknameInput(userNickname ?? '');
-        setNicknameError(null);
-    }, [isOpen, userNickname]);
 
     const handleBgmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseFloat(e.target.value);
@@ -79,53 +64,6 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
         }
     };
 
-    const handleSaveNickname = async () => {
-        if (!user) return;
-        if (!onSaveNickname) return;
-        if (isSavingNickname) return;
-
-        const trimmed = nicknameInput.trim();
-        if (!trimmed) {
-            setNicknameError('닉네임을 입력해주세요.');
-            return;
-        }
-        if (trimmed.length > 20) {
-            setNicknameError('닉네임은 20자 이하로 입력해주세요.');
-            return;
-        }
-
-        try {
-            setIsSavingNickname(true);
-            setNicknameError(null);
-            audioManager.playSFX('click');
-            await onSaveNickname(trimmed);
-        } catch (error) {
-            console.error('Nickname save failed:', error);
-            setNicknameError('닉네임 저장에 실패했습니다. 다시 시도해주세요.');
-        } finally {
-            setIsSavingNickname(false);
-        }
-    };
-
-    const handleLogout = async () => {
-        if (isLoggingOut) return;
-
-        try {
-            suppressLocalGameSave();
-            setIsLoggingOut(true);
-            audioManager.playSFX('click');
-            await logout();
-            broadcastForceClear();
-            onClose();
-            onLogoutCleanup();
-        } catch (error) {
-            resumeLocalGameSave();
-            console.error('Logout failed:', error);
-            alert('로그아웃 실패: 다시 시도해주세요.');
-        } finally {
-            setIsLoggingOut(false);
-        }
-    };
 
     if (!isOpen) return null;
 
@@ -135,7 +73,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                 {/* 헤더 */}
                 <div className="flex justify-between items-center p-4 bg-gray-900 border-b border-gray-700">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Menu size={20} className="text-cyan-400" /> 게임 메뉴
+                        <Settings size={20} className="text-cyan-400" /> 설정
                     </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
                         <X size={24} />
@@ -204,97 +142,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                                 />
                             </div>
 
-                            {/* 낮/밤 전환 */}
-                            <div className="pt-2 border-t border-gray-700">
-                                <div className="flex justify-between items-center text-gray-300 mb-2">
-                                    <span className="flex items-center gap-2"><Sun size={18} /> 시간대 설정</span>
-                                    <span className="text-xs text-gray-500">{isNight ? '현재: 밤' : '현재: 낮'}</span>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        onToggleDayNight();
-                                        audioManager.playSFX('click');
-                                    }}
-                                    className={`w-full py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${isNight
-                                        ? 'bg-indigo-900 text-yellow-300 border border-indigo-700 hover:bg-indigo-800'
-                                        : 'bg-blue-100 text-orange-600 border border-orange-200 hover:bg-blue-200'
-                                        }`}
-                                    type="button"
-                                >
-                                    {isNight ? (
-                                        <>
-                                            <Sun size={20} /> 아침으로 변경하기
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Moon size={20} /> 밤으로 변경하기
-                                        </>
-                                    )}
-                                </button>
-                            </div>
 
-                            {/* 닉네임 */}
-                            {user && onSaveNickname && (
-                                <div className="pt-4 border-t border-gray-700">
-                                    <div className="flex justify-between items-center text-gray-300 mb-2">
-                                        <span className="flex items-center gap-2"><User size={18} /> 닉네임</span>
-                                        <span className="text-xs text-gray-500">장터에 표시됩니다</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <input
-                                            value={nicknameInput}
-                                            onChange={(e) => setNicknameInput(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleSaveNickname();
-                                            }}
-                                            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg py-2 px-3 text-white focus:border-cyan-500 focus:outline-none"
-                                            placeholder="닉네임 입력"
-                                            maxLength={20}
-                                            disabled={isSavingNickname}
-                                        />
-                                        <button
-                                            onClick={handleSaveNickname}
-                                            disabled={isSavingNickname}
-                                            className={`px-4 rounded-lg font-bold transition-colors ${isSavingNickname
-                                                ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                                : 'bg-cyan-700 hover:bg-cyan-600 text-white'
-                                                }`}
-                                            type="button"
-                                        >
-                                            {isSavingNickname ? '저장 중' : '저장'}
-                                        </button>
-                                    </div>
-                                    {nicknameError && (
-                                        <div className="mt-2 text-xs text-red-300 bg-red-900/30 border border-red-800 rounded p-2">
-                                            {nicknameError}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* 로그아웃 (로그인 상태에서만 표시) */}
-                            {user && (
-                                <div className="pt-4 border-t border-gray-700">
-                                    <div className="flex justify-between items-center text-gray-300 mb-2 gap-3">
-                                        <span className="flex items-center gap-2"><LogOut size={18} /> 계정</span>
-                                        <span className="text-xs text-gray-500 truncate max-w-[180px] text-right">
-                                            {user.email ?? user.displayName ?? '로그인됨'}
-                                        </span>
-                                    </div>
-                                    <button
-                                        onClick={handleLogout}
-                                        disabled={isLoggingOut}
-                                        className={`w-full py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${isLoggingOut
-                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                            : 'bg-red-900/50 text-red-300 border border-red-700 hover:bg-red-900'
-                                            }`}
-                                        type="button"
-                                    >
-                                        <LogOut size={20} />
-                                        {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     )}
 
@@ -311,8 +159,8 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                             </div>
                             <button
                                 onClick={handleNewGame}
-                                disabled={isStartingNewGame || isLoggingOut}
-                                className={`font-bold py-3 px-8 rounded-full shadow-lg transition-all flex items-center gap-2 ${isStartingNewGame || isLoggingOut
+                                disabled={isStartingNewGame}
+                                className={`font-bold py-3 px-8 rounded-full shadow-lg transition-all flex items-center gap-2 ${isStartingNewGame
                                     ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                     : 'bg-red-600 hover:bg-red-500 text-white transform hover:scale-105'
                                     }`}

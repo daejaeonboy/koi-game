@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Store, Fish, Sparkles, Pill, Palette, Globe } from 'lucide-react';
+import { Store, Fish, Sparkles, Pill, Palette, Globe, Trophy, Menu } from 'lucide-react';
 
 // ... (IconProps and Icons remain change if needed, checking below)
 
@@ -58,6 +58,7 @@ interface ControlBarProps {
   onCleanPond: () => void;
   onThemeClick: () => void;
   onMarketplaceClick: () => void;
+  onRankingClick: () => void;
 }
 
 // Updated getButtonClass: Removed scale, shadow-lg, and glow effects
@@ -80,115 +81,91 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onCleanPond,
   onThemeClick,
   onMarketplaceClick,
+  onRankingClick,
 }) => {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
 
-  const handleInventoryClick = () => {
-    setIsInventoryOpen(!isInventoryOpen);
-  };
-
   const handleItemClick = (type: 'normal' | 'corn' | 'medicine') => {
-    // If not in feed mode, turn it on. If in feed mode but different key, switch.
-    // Logic: Always select and ensure feed mode is ON.
     if (!isFeedModeActive) {
       onToggleFeedMode();
     }
     onSelectFoodType(type);
-    setIsInventoryOpen(false); // Close menu after selection? User said "icon appears above", usually implies selection closes or stays? Let's close for cleaner UX.
+    setIsInventoryOpen(false);
+  };
+
+  const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
+
+  const handleMainMenuToggle = () => {
+    setIsMainMenuOpen(!isMainMenuOpen);
+    if (isInventoryOpen) setIsInventoryOpen(false);
+  };
+
+  const handleSubMenuClick = (action: () => void) => {
+    action();
+    setIsMainMenuOpen(false);
+  };
+
+  const handleInventoryClick = () => {
+    setIsInventoryOpen(!isInventoryOpen);
+    if (isMainMenuOpen) setIsMainMenuOpen(false);
   };
 
   return (
     <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
-      <button
-        onClick={onShopClick}
-        className={getButtonClass(false)}
-        aria-label="Open shop"
-      >
-        <Store size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
-      </button>
-
-      <button
-        onClick={onMarketplaceClick}
-        className={getButtonClass(false)}
-        aria-label="Open Marketplace"
-      >
-        <Globe size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
-      </button>
-
-      {/* Inventory System */}
+      {/* Main Menu System (Now on the Left) */}
       <div className="relative">
-        {/* Submenu Items (Appear Above) */}
-        {isInventoryOpen && (
+        {isMainMenuOpen && (
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 flex flex-row gap-2 bg-black/60 p-2 rounded-2xl border border-gray-700 backdrop-blur-md whitespace-nowrap">
-            {/* Regular Food Button */}
-            <button
-              onClick={() => handleItemClick('normal')}
-              className={getButtonClass(isFeedModeActive && selectedFoodType === 'normal')}
-              aria-label="Basic Feed"
-            >
-              <FeedIcon size={24} className="sm:w-[26px] sm:h-[26px]" />
-              <span className="absolute -top-1 -right-1 bg-gray-800 text-yellow-400 border border-white/20 text-[10px] sm:text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {foodCount}
-              </span>
+            <button onClick={() => handleSubMenuClick(onShopClick)} className={getButtonClass(false)} aria-label="Shop">
+              <Store size={24} />
             </button>
-
-            {/* Corn Food Button */}
-            <button
-              onClick={() => handleItemClick('corn')}
-              className={getButtonClass(isFeedModeActive && selectedFoodType === 'corn')}
-              aria-label="Corn food"
-            >
-              <CornIcon size={24} className="sm:w-[26px] sm:h-[26px]" />
-              <span className="absolute -top-1 -right-1 bg-gray-800 text-yellow-400 border border-white/20 text-[10px] sm:text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {cornCount}
-              </span>
+            <button onClick={() => handleSubMenuClick(onRankingClick)} className={getButtonClass(false)} aria-label="Ranking">
+              <Trophy size={24} />
             </button>
-
-            {/* Medicine Button */}
-            <button
-              onClick={() => handleItemClick('medicine')}
-              className={getButtonClass(isFeedModeActive && selectedFoodType === 'medicine')}
-              aria-label="Medicine"
-            >
-              <Pill size={24} className="sm:w-[26px] sm:h-[26px]" />
-              <span className="absolute -top-1 -right-1 bg-gray-800 text-yellow-400 border border-white/20 text-[10px] sm:text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {medicineCount}
-              </span>
+            <button onClick={() => handleSubMenuClick(onMarketplaceClick)} className={getButtonClass(false)} aria-label="Marketplace">
+              <Globe size={24} />
+            </button>
+            <button onClick={() => handleSubMenuClick(onThemeClick)} className={getButtonClass(false)} aria-label="Themes">
+              <Palette size={24} />
             </button>
           </div>
         )}
-
-        {/* Inventory Main Button */}
-        <button
-          onClick={handleInventoryClick}
-          className={`${getButtonClass(isInventoryOpen || isFeedModeActive)} relative`}
-          aria-label="Inventory"
-        >
-          {selectedFoodType === 'corn' ? (
-            <CornIcon size={24} className="sm:w-[26px] sm:h-[26px]" />
-          ) : selectedFoodType === 'medicine' ? (
-            <Pill size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
-          ) : (
-            <FeedIcon size={24} className="sm:w-[26px] sm:h-[26px]" />
-          )}
-
-          {/* Quantity Badge on Main Button */}
+        <button onClick={handleMainMenuToggle} className={getButtonClass(isMainMenuOpen)} aria-label="Menu">
+          <Menu size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
+        </button>
+      </div>
+      {/* Inventory System (Middle) */}
+      <div className="relative">
+        {isInventoryOpen && (
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 flex flex-row gap-2 bg-black/60 p-2 rounded-2xl border border-gray-700 backdrop-blur-md whitespace-nowrap">
+            <button onClick={() => handleItemClick('normal')} className={getButtonClass(isFeedModeActive && selectedFoodType === 'normal')}>
+              <FeedIcon size={24} className="sm:w-[26px] sm:h-[26px]" />
+              <span className="absolute -top-1 -right-1 bg-gray-800 text-yellow-400 border border-white/20 text-[10px] sm:text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{foodCount}</span>
+            </button>
+            <button onClick={() => handleItemClick('corn')} className={getButtonClass(isFeedModeActive && selectedFoodType === 'corn')}>
+              <CornIcon size={24} className="sm:w-[26px] sm:h-[26px]" />
+              <span className="absolute -top-1 -right-1 bg-gray-800 text-yellow-400 border border-white/20 text-[10px] sm:text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{cornCount}</span>
+            </button>
+            <button onClick={() => handleItemClick('medicine')} className={getButtonClass(isFeedModeActive && selectedFoodType === 'medicine')}>
+              <Pill size={24} className="sm:w-[26px] sm:h-[26px]" />
+              <span className="absolute -top-1 -right-1 bg-gray-800 text-yellow-400 border border-white/20 text-[10px] sm:text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{medicineCount}</span>
+            </button>
+          </div>
+        )}
+        <button onClick={handleInventoryClick} className={getButtonClass(isInventoryOpen || isFeedModeActive)}>
+          {selectedFoodType === 'corn' ? <CornIcon size={24} /> : selectedFoodType === 'medicine' ? <Pill size={24} /> : <FeedIcon size={24} />}
           <span className="absolute -top-1 -right-1 bg-gray-800 text-yellow-400 border border-white/20 text-[10px] sm:text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
             {selectedFoodType === 'corn' ? cornCount : selectedFoodType === 'medicine' ? medicineCount : foodCount}
           </span>
         </button>
       </div>
 
-      <button onClick={onPondInfoClick} className={getButtonClass(false)} aria-label="Open pond info">
-        <Fish size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
-      </button>
-
       <button onClick={onCleanPond} className={getButtonClass(false)} aria-label="Clean pond">
         <Sparkles size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
       </button>
 
-      <button onClick={onThemeClick} className={getButtonClass(false)} aria-label="Change theme">
-        <Palette size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
+      <button onClick={onPondInfoClick} className={getButtonClass(false)} aria-label="Open pond info">
+        <Fish size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
       </button>
     </div>
   );

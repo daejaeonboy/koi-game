@@ -6,13 +6,14 @@ import { ShopModal } from './components/ShopModal';
 import { KoiDetailModal } from './components/KoiDetailModal';
 import { PondInfoModal } from './components/PondInfoModal';
 import { SaveLoadModal } from './components/SaveLoadModal';
+import { AccountModal } from './components/AccountModal';
 // SettingsModal removed
 
 
 import { useKoiPond } from './hooks/useKoiPond';
 import { Koi, GeneType, KoiGenetics, GrowthStage, Ponds, Decoration, DecorationType, PondTheme, SavedGameState } from './types';
 import { breedKoi, calculateKoiValue, getPhenotype, GENE_COLOR_MAP, getDisplayColor } from './utils/genetics';
-import { Info, Store, X, Dna, DollarSign, Wheat, Volume2, VolumeX, Save, RotateCcw, ShoppingCart, Upload, Menu, Palette, Droplets } from 'lucide-react';
+import { Info, Store, X, Dna, DollarSign, Wheat, Volume2, VolumeX, Save, RotateCcw, ShoppingCart, Upload, Menu, Palette, Droplets, Trophy, Settings, User } from 'lucide-react';
 import { audioManager } from './utils/audio';
 import { ThemeModal } from './components/ThemeModal';
 import { CleanConfirmModal } from './components/CleanConfirmModal';
@@ -36,6 +37,7 @@ import { ListingDetailModal } from './components/ListingDetailModal';
 import { MarketplaceListing } from './types';
 import { FORCE_CLEAR_KEY, SAVE_GAME_KEY, clearLocalGameSaves, suppressLocalGameSave } from './services/localSave';
 import { ensureUserProfileNickname, updateUserNickname } from './services/profile';
+import { RankingModal } from './components/RankingModal';
 
 interface Animation {
   id: number;
@@ -111,6 +113,8 @@ export const App: React.FC = () => {
   const [activeKoi, setActiveKoi] = useState<Koi | null>(null);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isCleanConfirmOpen, setIsCleanConfirmOpen] = useState(false);
+  const [isRankingModalOpen, setIsRankingModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   // --- New Feature States ---
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -138,6 +142,7 @@ export const App: React.FC = () => {
   const [zenPoints, setZenPoints] = useState(savedState?.zenPoints ?? (import.meta.env.DEV ? 10000 : 1000));
   const [isFeedModeActive, setIsFeedModeActive] = useState(false);
   const [breedingSelection, setBreedingSelection] = useState<string[]>([]);
+  const [honorPoints, setHonorPoints] = useState(savedState?.honorPoints ?? 0);
   const [sellAnimations, setSellAnimations] = useState<Animation[]>([]);
   const [foodDropAnimations, setFoodDropAnimations] = useState<Animation[]>([]);
 
@@ -149,6 +154,16 @@ export const App: React.FC = () => {
   const [koiNameCounter, setKoiNameCounter] = useState(savedState?.koiNameCounter ?? 3);
   const [isMuted, setIsMuted] = useState(false);
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' | 'error' } | null>(null);
+
+  // Clear notification after 3 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Initialize audio on first interaction
   useEffect(() => {
@@ -243,9 +258,11 @@ export const App: React.FC = () => {
       zenPoints,
       foodCount,
       cornCount,
+      medicineCount,
+      honorPoints,
       koiNameCounter,
     };
-  }, [ponds, activePondId, zenPoints, foodCount, cornCount, koiNameCounter]);
+  }, [ponds, activePondId, zenPoints, foodCount, cornCount, medicineCount, honorPoints, koiNameCounter]);
 
   // Periodic Save (Every 5 seconds) to prevent excessive writes
   useEffect(() => {
@@ -428,12 +445,32 @@ export const App: React.FC = () => {
     setIsCleanConfirmOpen(false);
   };
 
+  const handleNewGame = async (): Promise<boolean> => {
+    if (!window.confirm("정말 새 게임을 시작하시겠습니까? 현재 진행 상황이 모두 사라집니다.")) return false;
+    localStorage.removeItem(SAVE_GAME_KEY);
+    localStorage.removeItem('zenPoints');
+    resetPonds();
+    setZenPoints(import.meta.env.DEV ? 10000 : 1000);
+    setFoodCount(20);
+    setCornCount(0);
+    setKoiNameCounter(3);
+    window.location.reload();
+    return true;
+  };
+
+  const handleLogoutCleanup = () => {
+    setZenPoints(1000);
+    resetPonds();
+  };
+
   const handleLoadGame = (loadedState: SavedGameState) => {
     setPonds(loadedState.ponds);
     setActivePondId(loadedState.activePondId);
     setZenPoints(loadedState.zenPoints);
     setFoodCount(loadedState.foodCount);
     setCornCount(loadedState.cornCount || 0);
+    setMedicineCount(loadedState.medicineCount || 0);
+    setHonorPoints(loadedState.honorPoints || 0);
     setKoiNameCounter(loadedState.koiNameCounter);
     setNotification({ message: "게임을 불러왔습니다.", type: 'success' });
   };
@@ -545,7 +582,6 @@ export const App: React.FC = () => {
         genetics: breedResult.genetics,
         position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
         velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
-        size: 4,
         age: 0,
         growthStage: GrowthStage.FRY,
         timesFed: 0,
@@ -597,7 +633,6 @@ export const App: React.FC = () => {
       genetics: newGenetics,
       position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
       velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
-      size: 4,
       age: 50, // Shop kois are juveniles
       growthStage: GrowthStage.JUVENILE,
       timesFed: 0,
@@ -645,6 +680,37 @@ export const App: React.FC = () => {
     setMedicineCount(c => (c || 0) + quantity);
     setIsShopModalOpen(false);
   }
+
+  const handleBuyTrophy = useCallback(async (quantity: number) => {
+    const totalCost = 100000 * quantity;
+    if (zenPoints < totalCost) {
+      setNotification({ message: '젠 포인트가 부족합니다!', type: 'error' });
+      return;
+    }
+
+    // 상태 업데이트
+    const nextZenPoints = zenPoints - totalCost;
+    const nextHonorPoints = (honorPoints || 0) + quantity;
+
+    setZenPoints(nextZenPoints);
+    setHonorPoints(nextHonorPoints);
+    audioManager.playSFX('purchase');
+    setNotification({ message: `명예 트로피 ${quantity}개를 구매했습니다!`, type: 'success' });
+
+    // 즉시 클라우드 동기화 시도
+    if (user && isCloudSyncReady && gameStateRef.current) {
+      try {
+        const immediateState: SavedGameState = {
+          ...gameStateRef.current,
+          zenPoints: nextZenPoints,
+          honorPoints: nextHonorPoints
+        };
+        await saveGameToCloud(user.uid, immediateState);
+      } catch (e) {
+        console.error("Immediate cloud sync failed:", e);
+      }
+    }
+  }, [zenPoints, honorPoints, user, isCloudSyncReady]);
 
   const handleBuyKoi = (color: GeneType) => {
     let price = 30000;
@@ -824,7 +890,12 @@ export const App: React.FC = () => {
           <p className="text-xl font-bold text-yellow-300">{zenPoints.toLocaleString()} ZP</p>
         </div>
 
-        {/* Water Quality Indicator */}
+        {/* Ad Point Display */}
+        <APDisplay
+          ap={adPoints}
+          onAdClick={() => setIsAdModalOpen(true)}
+        />
+
         {/* Water Quality Indicator - Read Only */}
         <div className="bg-gray-900/60 backdrop-blur-sm p-2 rounded-lg border border-gray-700/50 flex items-center gap-2 cursor-default select-none pointer-events-none">
           <Droplets size={18} className={`${waterQuality < 50 ? 'text-red-400 animate-pulse' : 'text-blue-400'}`} />
@@ -838,27 +909,35 @@ export const App: React.FC = () => {
       </div>
 
       <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 z-20 flex items-center gap-2">
-        {/* Ad Point Display */}
-        <APDisplay
-          ap={adPoints}
-          onAdClick={() => setIsAdModalOpen(true)}
-        />
-
         <button
           onClick={() => setIsSaveLoadModalOpen(true)}
           className="bg-gray-900/40 backdrop-blur-sm p-3 rounded-full border border-white/10 text-white hover:text-yellow-400 transition-colors hover:bg-gray-800/60 hover:border-white/20"
-          aria-label="게임 메뉴"
-          title="게임 메뉴 (저장/불러오기/새 게임)"
+          aria-label="설정 메뉴"
+          title="설정 메뉴 (저장/불러오기/새 게임)"
         >
-          <Menu size={24} strokeWidth={1.5} />
+          <Settings size={22} strokeWidth={1.5} />
         </button>
 
+        {/* Profile Section - Unified Circular Icon Only */}
         <button
-          onClick={() => setIsInfoModalOpen(true)}
-          className="bg-gray-900/40 backdrop-blur-sm p-3 rounded-full border border-white/10 text-white hover:text-yellow-400 transition-colors hover:bg-gray-800/60 hover:border-white/20"
-          aria-label="게임 정보"
+          onClick={() => {
+            if (!user) setIsAuthModalOpen(true);
+            else setIsAccountModalOpen(true);
+          }}
+          className="bg-gray-900/40 backdrop-blur-sm p-0 rounded-full border border-white/10 text-white hover:text-yellow-400 transition-colors hover:bg-gray-800/60 hover:border-white/20 w-[46px] h-[46px] overflow-hidden flex items-center justify-center group shadow-xl ml-1"
+          title={user ? `${user.displayName || userNickname || '게스트'} 님` : '클릭하여 로그인'}
         >
-          <Info size={24} strokeWidth={1.5} />
+          {user && user.photoURL ? (
+            <img
+              src={user.photoURL}
+              alt="Profile"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400 group-hover:text-yellow-400 bg-gray-900/40">
+              <User size={24} strokeWidth={1.5} />
+            </div>
+          )}
         </button>
       </div>
 
@@ -944,6 +1023,10 @@ export const App: React.FC = () => {
           audioManager.playSFX('click');
           setIsMarketplaceOpen(true);
         }}
+        onRankingClick={() => {
+          audioManager.playSFX('click');
+          setIsRankingModalOpen(true);
+        }}
       />
 
       {
@@ -955,8 +1038,10 @@ export const App: React.FC = () => {
             onBuyCorn={handleBuyCorn}
             onBuyMedicine={handleBuyMedicine}
             onBuyKoi={handleBuyKoi}
+            onBuyTrophy={handleBuyTrophy}
             onBuyPond={handleBuyPondExpansion}
             pondCount={Object.keys(ponds).length}
+            honorPoints={honorPoints}
           />
         )
       }
@@ -984,35 +1069,29 @@ export const App: React.FC = () => {
           />
         )
       }
-      {/* {isSettingsModalOpen && <SettingsModal onClose={() => setIsSettingsModalOpen(false)} />} Removed */}
+      {/* Settings Modal */}
       <SaveLoadModal
         isOpen={isSaveLoadModalOpen}
         onClose={() => setIsSaveLoadModalOpen(false)}
-        onNewGame={async () => {
-          localStorage.removeItem(SAVE_GAME_KEY);
-          localStorage.removeItem('zenPoints');
-          resetPonds();
-          setZenPoints(import.meta.env.DEV ? 10000 : 1000);
-          setFoodCount(20);
-          setCornCount(0);
-          setKoiNameCounter(3);
-          window.location.reload();
-          return true;
-        }}
-        onLogoutCleanup={() => {
-          setZenPoints(1000);
-          resetPonds();
-        }}
-        isNight={false}
+        onNewGame={handleNewGame}
+        isNight={false} // Perpetual day by request
         onToggleDayNight={() => { }}
-        userNickname={resolvedUserNickname}
+      />
+
+      {/* Account Modal */}
+      <AccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        userNickname={userNickname}
         onSaveNickname={handleSaveNickname}
+        onLogoutCleanup={handleLogoutCleanup}
       />
       {
         activeKoi && <KoiDetailModal
           koi={activeKoi}
           totalKoiCount={koiList.length}
           onClose={() => setActiveKoi(null)}
+          onRename={handleRenameKoi}
           onSell={(koi) => {
             handleSell(koi);
             setActiveKoi(null);
@@ -1182,7 +1261,6 @@ export const App: React.FC = () => {
             },
             position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
             velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
-            size: growthStage === GrowthStage.FRY ? 4 : (growthStage === GrowthStage.JUVENILE ? 8 : 12),
             age: growthStage === GrowthStage.FRY ? 0 : (growthStage === GrowthStage.JUVENILE ? 50 : 100),
             growthStage: growthStage || GrowthStage.FRY,
             timesFed: 0,
@@ -1194,6 +1272,15 @@ export const App: React.FC = () => {
           setNotification({ message: '새로운 코이가 생성되었습니다.', type: 'success' });
         }}
         onUpdateKoi={handleUpdateKoi}
+      />
+
+      <RankingModal
+        isOpen={isRankingModalOpen}
+        onClose={() => setIsRankingModalOpen(false)}
+        userNickname={resolvedUserNickname}
+        myHonorPoints={honorPoints}
+        isLoggedIn={!!user}
+        currUserId={user?.uid}
       />
     </div >
   );

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, DollarSign, Gavel } from 'lucide-react';
+import { X, DollarSign } from 'lucide-react';
 import { Koi, MarketplaceListing } from '../types';
-import { buyNowListing, cancelListing, listenToListing, placeBid } from '../services/marketplace';
+import { buyNowListing, cancelListing, listenToListing } from '../services/marketplace';
+import { calculateSpotPhenotype, GENE_COLOR_MAP } from '../utils/genetics';
 import { SingleKoiCanvas } from './SingleKoiCanvas';
 
 // Reusing generic modal styles or similar
@@ -29,15 +30,13 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
-    const [pendingBidAmount, setPendingBidAmount] = useState<number | null>(null);
-    const [bidAmount, setBidAmount] = useState<string>(String((listing.currentBid ?? listing.startPrice ?? 0) + 50));
+
+    const spotPhenotype = useMemo(() => calculateSpotPhenotype(liveListing.koiData.genetics.spotPhenotypeGenes, liveListing.koiData), [liveListing.koiData]);
 
     useEffect(() => {
         setLiveListing(listing);
-        setBidAmount(String((listing.currentBid ?? listing.startPrice ?? 0) + 50));
         setError(null);
         setNotice(null);
-        setPendingBidAmount(null);
         setIsProcessing(false);
     }, [listing.id]);
 
@@ -51,63 +50,10 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
     const TRANSACTION_FEE_RATE = 0.05;
 
-    const parsedBidAmount = useMemo(() => {
-        const amount = parseInt(bidAmount);
-        return Number.isFinite(amount) ? amount : NaN;
-    }, [bidAmount]);
-
-    const requiredBidAp = useMemo(() => {
-        if (!Number.isFinite(parsedBidAmount)) return Infinity;
-        return Math.ceil(parsedBidAmount * (1 + TRANSACTION_FEE_RATE));
-    }, [parsedBidAmount]);
-
     const requiredBuyNowAp = useMemo(() => {
         if (typeof liveListing.buyNowPrice !== 'number' || liveListing.buyNowPrice <= 0) return Infinity;
         return Math.ceil(liveListing.buyNowPrice * (1 + TRANSACTION_FEE_RATE));
     }, [liveListing.buyNowPrice]);
-
-    const canBid = useMemo(() => {
-        if (isOwner) return false;
-        if (!currentUserId) return false;
-        if (isProcessing) return false;
-        if (pendingBidAmount != null) return false;
-
-        if (!Number.isFinite(parsedBidAmount)) return false;
-        if (parsedBidAmount <= liveListing.currentBid) return false;
-        if (parsedBidAmount <= 0) return false;
-
-        return userAP >= requiredBidAp;
-    }, [isOwner, currentUserId, isProcessing, pendingBidAmount, parsedBidAmount, liveListing.currentBid, userAP, requiredBidAp]);
-
-    useEffect(() => {
-        if (pendingBidAmount == null) return;
-
-        const isConfirmed =
-            liveListing.currentBid >= pendingBidAmount &&
-            liveListing.currentBidderId === currentUserId;
-
-        if (!isConfirmed) return;
-
-        setPendingBidAmount(null);
-        setIsProcessing(false);
-        setError(null);
-        setNotice('입찰이 반영되었습니다.');
-        setBidAmount(String(liveListing.currentBid + 50));
-    }, [pendingBidAmount, liveListing.currentBid, liveListing.currentBidderId, currentUserId]);
-
-    useEffect(() => {
-        if (pendingBidAmount == null) return;
-
-        const timeout = window.setTimeout(() => {
-            setPendingBidAmount(null);
-            setIsProcessing(false);
-            setError('입찰이 아직 반영되지 않았습니다. (AP 부족/종료/동시 입찰 등)');
-        }, 7000);
-
-        return () => {
-            window.clearTimeout(timeout);
-        };
-    }, [pendingBidAmount]);
 
     const handleBuyNow = async () => {
         if (!currentUserId) return;
@@ -125,38 +71,6 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             setError("구매 처리에 실패했습니다. (이미 판매되었거나 오류 발생)");
         } finally {
             setIsProcessing(false);
-        }
-    };
-
-    const handleBid = async () => {
-        if (!currentUserId) return;
-
-        const amount = parseInt(bidAmount);
-        if (isNaN(amount) || amount <= liveListing.currentBid) {
-            setError("입찰가는 현재가보다 높아야 합니다.");
-            return;
-        }
-
-        if (userAP < requiredBidAp) {
-            setError(`AP가 부족합니다. (수수료 포함 ${requiredBidAp.toLocaleString()} AP 필요)`);
-            return;
-        }
-
-        setIsProcessing(true);
-        setError(null);
-        setNotice('입찰 처리 중...');
-        try {
-            await placeBid(liveListing.id, currentUserId, userNickname || 'User', amount);
-            setPendingBidAmount(amount);
-        } catch (e) {
-            console.error(e);
-            setError("입찰에 실패했습니다. (AP 부족/이미 종료/오류)");
-            setNotice(null);
-            setIsProcessing(false);
-            setPendingBidAmount(null);
-        } finally {
-            // 입찰은 Cloud Function 트리거(onBidCreate)로 최종 반영되므로,
-            // 여기서는 즉시 종료하지 않고 listing 갱신으로 확정합니다.
         }
     };
 
@@ -192,37 +106,49 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 <div className="flex flex-col items-center mb-6 w-full">
                     {/* 돋보기 메뉴(상세보기)와 동일한 미리보기 스타일 */}
                     <div className="bg-blue-900/30 p-4 rounded-lg border border-gray-700 flex items-center justify-center overflow-hidden w-full mb-4" style={{ height: '200px' }}>
-                        <SingleKoiCanvas koi={liveListing.koiData} width={400} height={180} />
+                        <SingleKoiCanvas koi={liveListing.koiData} width={400} height={180} isStatic={true} />
                     </div>
 
                     <h3 className="text-2xl font-bold text-white">{liveListing.koiData.name}</h3>
                     <p className="text-gray-400 text-sm mt-1">판매자: {liveListing.sellerNickname}</p>
                 </div>
 
-                <div className="bg-gray-800/50 rounded-xl p-4 mb-6 space-y-3">
+                <div className="bg-gray-800/50 rounded-xl p-4 mb-6 space-y-4">
                     <div className="flex justify-between items-center pb-2 border-b border-gray-700">
-                        <span className="text-gray-400">현재가</span>
-                        <span className="text-xl font-bold text-yellow-400">{liveListing.currentBid.toLocaleString()} AP</span>
+                        <span className="text-gray-400">판매 가격</span>
+                        <span className="text-xl font-bold text-yellow-400">{liveListing.buyNowPrice?.toLocaleString()} AP</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-400">시작가</span>
-                        <span className="text-white">{liveListing.startPrice.toLocaleString()} AP</span>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <span className="font-bold text-gray-500 w-12">[몸]</span>
+                            <span>명도: <span className="text-gray-200">{Math.round(liveListing.koiData.genetics.lightness)}</span></span>
+                            <span className="text-gray-600">|</span>
+                            <span>채도: <span className="text-gray-200">{Math.round(liveListing.koiData.genetics.saturation)}</span></span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <span className="font-bold text-gray-500 w-12">[무늬]</span>
+                            <span>점: <span className="text-cyan-300">{liveListing.koiData.genetics.spots.length}개</span></span>
+                            <span className="text-gray-600">|</span>
+                            <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
+                            <span className="text-gray-600">|</span>
+                            <span>선명도: <span className="text-purple-300">{((1 - spotPhenotype.edgeBlur) * 100).toFixed(0)}%</span></span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 pt-1">
+                            <span className="font-bold text-gray-600 w-12">유전자</span>
+                            <div className="flex flex-wrap gap-1">
+                                {liveListing.koiData.genetics.baseColorGenes.map((gene, idx) => (
+                                    <span key={idx} className="flex items-center gap-1 bg-gray-900 px-1.5 py-0.5 rounded border border-gray-700 text-[11px]">
+                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: GENE_COLOR_MAP[gene] }}></span>
+                                        {gene}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-400">즉시 구매가</span>
-                        <span className="text-white">
-                            {typeof liveListing.buyNowPrice === 'number' && liveListing.buyNowPrice > 0
-                                ? `${liveListing.buyNowPrice.toLocaleString()} AP`
-                                : '없음'}
-                        </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-400">성별/세대</span>
-                        <span className="text-white">Gen.{liveListing.koiData.genetics.generationalData?.generation || 1}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-400">크기</span>
-                        <span className="text-white">{liveListing.koiData.size.toFixed(1)}cm</span>
+
+                    <div className="pt-2 border-t border-gray-700 text-xs text-gray-500 text-center">
+                        유전자 기반 정보가 표시됩니다
                     </div>
                 </div>
 
@@ -235,27 +161,6 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 {error && (
                     <div className="bg-red-900/50 border border-red-500/50 text-red-200 text-sm p-3 rounded-lg mb-4 text-center">
                         {error}
-                    </div>
-                )}
-
-                {!isOwner && (
-                    <div className="flex gap-2 mb-3">
-                        <input
-                            type="number"
-                            value={bidAmount}
-                            onChange={(e) => setBidAmount(e.target.value)}
-                            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"
-                            min={liveListing.currentBid + 1}
-                            placeholder="입찰가"
-                            disabled={isProcessing || pendingBidAmount != null}
-                        />
-                        <button
-                            onClick={handleBid}
-                            disabled={!canBid}
-                            className="bg-cyan-700 hover:bg-cyan-600 text-white font-bold px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                            <Gavel size={16} /> 입찰
-                        </button>
                     </div>
                 )}
 

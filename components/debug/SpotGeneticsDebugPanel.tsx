@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Koi, SpotPhenotypeGenes, GeneAlleles, DominanceType, GeneType, GrowthStage, KoiGenetics, Spot, SpotShape } from '../../types';
 import { expressGene, calculateSpotPhenotype, GENE_COLOR_MAP } from '../../utils/genetics';
 import { getDebugConfig } from '../../config';
@@ -56,6 +56,53 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
         GENE_IDS.forEach(id => { initial[id] = 50; }); // Start at 50%
         return initial;
     });
+
+    // Dragging state
+    const [pos, setPos] = useState({ top: 8, right: 8 });
+    const isDragging = useRef(false);
+    const dragStart = useRef({ x: 0, y: 0, initialTop: 8, initialRight: 8 });
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        // Only allow dragging from the header or specific non-interactive areas
+        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('select')) {
+            return;
+        }
+
+        isDragging.current = true;
+        dragStart.current = {
+            x: e.clientX,
+            y: e.clientY,
+            initialTop: pos.top,
+            initialRight: pos.right
+        };
+        e.preventDefault();
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging.current) return;
+
+            const deltaX = e.clientX - dragStart.current.x;
+            const deltaY = e.clientY - dragStart.current.y;
+
+            setPos({
+                top: dragStart.current.initialTop + deltaY,
+                right: dragStart.current.initialRight - deltaX // Moving right decreases right property
+            });
+        };
+
+        const handleMouseUp = () => {
+            isDragging.current = false;
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
 
     // Sync editZenPoints with prop
     useEffect(() => {
@@ -192,8 +239,11 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
 
     return (
         <div
-            className="fixed top-2 right-2 z-[9999] pointer-events-auto"
+            className="fixed z-[9999] pointer-events-auto select-none"
+            onMouseDown={handleMouseDown}
             style={{
+                top: `${pos.top}px`,
+                right: `${pos.right}px`,
                 background: 'rgba(0,0,0,0.95)',
                 color: '#00ff00',
                 padding: isMinimized ? '8px' : '12px',
@@ -204,6 +254,7 @@ export const SpotGeneticsDebugPanel: React.FC<SpotGeneticsDebugPanelProps> = ({
                 maxHeight: isMinimized ? 'auto' : '85vh',
                 overflow: 'auto',
                 minWidth: isMinimized ? 'auto' : '360px',
+                cursor: 'move',
             }}
         >
             {/* Header */}

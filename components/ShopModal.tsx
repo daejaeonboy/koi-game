@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ShoppingCart, Minus, Plus, Dna, Pill } from 'lucide-react';
+import { X, ShoppingCart, Minus, Plus, Dna, Pill, Trophy } from 'lucide-react';
 import { GENE_COLOR_MAP } from '../utils/genetics';
 import { GeneType } from '../types';
 
@@ -52,14 +52,17 @@ interface ShopModalProps {
     onBuyMedicine: (quantity: number) => void;
 
     onBuyKoi: (color: GeneType) => void;
+    onBuyTrophy: (quantity: number) => void;
     onBuyPond: () => void;
     pondCount: number;
+    honorPoints: number;
 }
 
 const FOOD_PACK_PRICE = 200;
 const CORN_PACK_PRICE = 500;
 const MEDICINE_PRICE = 3000;
 const RARE_KOI_PRICE = 30000;
+const TROPHY_PRICE = 100000;
 
 const ShopItem: React.FC<{
     icon: React.ReactNode;
@@ -126,7 +129,7 @@ const ShopItem: React.FC<{
 };
 
 
-export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyFood, onBuyCorn, onBuyMedicine, onBuyKoi, onBuyPond, pondCount }) => {
+export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyFood, onBuyCorn, onBuyMedicine, onBuyKoi, onBuyTrophy, onBuyPond, pondCount, honorPoints }) => {
 
     return (
         <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
@@ -141,8 +144,19 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                     </button>
                 </div>
 
-                <div className="text-right text-lg text-yellow-300 mb-4">
-                    보유 포인트: <span className="font-bold">{zenPoints.toLocaleString()} ZP</span>
+                <div className="flex flex-col gap-2 mb-4 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-400 font-bold uppercase">Zen Points</span>
+                        <span className="text-lg font-black text-yellow-400">{zenPoints.toLocaleString()} ZP</span>
+                    </div>
+                    <div className="h-[1px] bg-gray-700/50 w-full" />
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-400 font-bold uppercase">My Trophies</span>
+                        <div className="flex items-center gap-1.5">
+                            <Trophy size={16} className="text-yellow-400" />
+                            <span className="text-lg font-black text-yellow-500">{honorPoints.toLocaleString()}</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-3">
@@ -184,6 +198,15 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                         disabled={pondCount >= 4}
                         disabledReason={pondCount >= 4 ? "최대 보유량 도달" : undefined}
                     />
+                    <ShopItem
+                        icon={<Trophy size={40} className="text-yellow-400" />}
+                        title="명예 트로피"
+                        description="당신의 명예를 증명하는 트로피입니다. 랭킹에 반영됩니다!"
+                        price={TROPHY_PRICE}
+                        onBuy={(q) => onBuyTrophy(q)}
+                        canAfford={(q) => zenPoints >= TROPHY_PRICE * q}
+                        hasQuantity={true}
+                    />
                 </div>
 
                 <div className="mt-6 border-t border-gray-700 pt-4">
@@ -194,11 +217,6 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                     <div className="space-y-3">
                         {[
                             { color: GeneType.CREAM, name: "기본 크림 코이", price: 500, desc: "가장 기본적인 코이입니다." },
-                            { color: GeneType.YELLOW, name: "골든 코이", price: 30000, desc: "순수한 골든 코이 유전자를 가진 아기 코이입니다." },
-                            { color: GeneType.RED, name: "블러드 코이", price: 30000, desc: "순수한 블러드 코이 유전자를 가진 아기 코이입니다." },
-                            { color: GeneType.ORANGE, name: "오렌지 코이", price: 30000, desc: "순수한 오렌지 코이 유전자를 가진 아기 코이입니다." },
-                            { color: GeneType.WHITE, name: "플레티넘 코이", price: 30000, desc: "순수한 플레티넘 코이 유전자를 가진 아기 코이입니다." },
-                            { color: GeneType.BLACK, name: "멜라니스틱 코이", price: 30000, desc: "순수한 멜라니스틱 코이 유전자를 가진 아기 코이입니다." },
                         ].map((item) => (
                             <div key={item.color} className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex flex-col">
                                 <div className="flex items-center gap-3">

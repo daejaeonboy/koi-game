@@ -24,8 +24,7 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
     onListingCreated
 }) => {
     const [selectedKoiId, setSelectedKoiId] = useState<string | null>(null);
-    const [startPrice, setStartPrice] = useState<string>('300');
-    const [buyNowPrice, setBuyNowPrice] = useState<string>('800');
+    const [buyNowPrice, setBuyNowPrice] = useState<string>('500');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -41,23 +40,10 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
             return;
         }
 
-        const startPriceNum = parseInt(startPrice);
-        if (isNaN(startPriceNum) || startPriceNum < 100) {
-            setError("시작가는 최소 100 AP 이상이어야 합니다.");
+        const buyNowPriceNum = parseInt(buyNowPrice);
+        if (isNaN(buyNowPriceNum) || buyNowPriceNum < 100) {
+            setError("판매가는 최소 100 AP 이상이어야 합니다.");
             return;
-        }
-
-        const buyNowPriceTrimmed = buyNowPrice.trim();
-        const buyNowPriceNum = buyNowPriceTrimmed === '' ? undefined : parseInt(buyNowPriceTrimmed);
-        if (buyNowPriceNum !== undefined) {
-            if (isNaN(buyNowPriceNum) || buyNowPriceNum < 100) {
-                setError("즉시 구매가는 최소 100 AP 이상이어야 합니다.");
-                return;
-            }
-            if (buyNowPriceNum < startPriceNum) {
-                setError("즉시 구매가는 시작가보다 같거나 높아야 합니다.");
-                return;
-            }
         }
 
         if (!userId) {
@@ -72,7 +58,8 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
         setError(null);
 
         try {
-            await createListing(userId, userNickname, selectedKoi, startPriceNum, buyNowPriceNum);
+            // Using buyNowPrice as both startPrice and buyNowPrice for instant sale effectively
+            await createListing(userId, userNickname, selectedKoi, buyNowPriceNum, buyNowPriceNum);
             onListingCreated(selectedKoiId);
             onClose();
         } catch (e) {
@@ -113,7 +100,6 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                         <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-800/50 rounded-lg p-2 grid grid-cols-3 gap-2 align-content-start">
                             {eligibleKois.map((koi, index) => {
                                 const phenotype = getPhenotype(koi.genetics.baseColorGenes);
-                                const color = getDisplayColor(phenotype, koi.genetics.lightness, koi.genetics.isTransparent, koi.genetics.saturation);
                                 const isSelected = selectedKoiId === koi.id;
 
                                 return (
@@ -132,7 +118,7 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                             </div>
                                         )}
                                         <div className="absolute bottom-1 text-[10px] text-gray-300 w-full text-center truncate px-1">
-                                            코이 #{index + 1}
+                                            {koi.name}
                                         </div>
                                     </div>
                                 );
@@ -148,8 +134,6 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                     {(() => {
                                         const k = kois.find(k => k.id === selectedKoiId);
                                         if (!k) return null;
-                                        const p = getPhenotype(k.genetics.baseColorGenes);
-                                        const c = getDisplayColor(p, k.genetics.lightness, k.genetics.isTransparent, k.genetics.saturation);
                                         return (
                                             <>
                                                 <button
@@ -160,9 +144,9 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                                     <Search size={16} />
                                                 </button>
                                                 <KoiCSSPreview koi={k} className="w-16 h-16 mx-auto mb-2 border-2 border-white/20 shadow-lg" />
-                                                <div className="font-bold text-white">코이 #{eligibleKois.findIndex(ek => ek.id === k.id) + 1}</div>
+                                                <div className="font-bold text-white">{k.name}</div>
                                                 <div className="text-xs text-gray-400 mt-1">
-                                                    {k.growthStage === GrowthStage.FRY ? '치어' : k.growthStage === GrowthStage.JUVENILE ? '유체' : '성체'}
+                                                    {k.growthStage === GrowthStage.FRY ? '치어' : k.growthStage === GrowthStage.JUVENILE ? '준성체' : '성체'}
                                                 </div>
                                             </>
                                         );
@@ -176,35 +160,20 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                         </div>
 
                         <div>
-                            <label className="block text-xs text-gray-400 mb-1">시작가 (AP)</label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    value={startPrice}
-                                    onChange={(e) => setStartPrice(e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-600 rounded-lg py-2 pl-3 pr-10 text-white focus:border-cyan-500 focus:outline-none"
-                                    placeholder="300"
-                                    min="100"
-                                />
-                                <span className="absolute right-3 top-2.5 text-gray-400 text-sm">AP</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs text-gray-400 mb-1">즉시 구매가 (AP) <span className="text-[10px] text-gray-500">(선택)</span></label>
+                            <label className="block text-xs text-gray-400 mb-1">판매 가격 (AP)</label>
                             <div className="relative">
                                 <input
                                     type="number"
                                     value={buyNowPrice}
                                     onChange={(e) => setBuyNowPrice(e.target.value)}
                                     className="w-full bg-gray-800 border border-gray-600 rounded-lg py-2 pl-3 pr-10 text-white focus:border-cyan-500 focus:outline-none"
-                                    placeholder="800"
-                                    min="0"
+                                    placeholder="500"
+                                    min="100"
                                 />
                                 <span className="absolute right-3 top-2.5 text-gray-400 text-sm">AP</span>
                             </div>
                             <p className="text-[10px] text-gray-500 mt-1">
-                                구매자는 결제 시 5% 수수료가 추가됩니다. (예: 즉구 800 → 840 AP)
+                                구매자는 결제 시 5% 수수료가 추가됩니다. (예: 1,000 → 1,050 AP)
                             </p>
                         </div>
 

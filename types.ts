@@ -68,7 +68,6 @@ export interface SpotPhenotype {
 }
 
 export interface GenerationalData {
-  generation: number;
   ancestorTraits?: {
     grandparent1?: Partial<SpotPhenotype>;
     grandparent2?: Partial<SpotPhenotype>;
@@ -97,7 +96,6 @@ export interface Koi {
   position: { x: number; y: number };
   velocity: { vx: number; vy: number };
   age: number; // 0 to 100+
-  size: number;
   growthStage: GrowthStage;
   timesFed: number;
   foodTargetId: number | null;
@@ -146,6 +144,7 @@ export interface SavedGameState {
   foodCount: number;
   cornCount?: number; // Premium food
   medicineCount?: number; // New item
+  honorPoints?: number; // Honor Trophies
   koiNameCounter: number;
   timestamp?: number; // Added for display
 }

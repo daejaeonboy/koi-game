@@ -141,6 +141,7 @@ export interface SavedGameState {
   ponds: Ponds;
   activePondId: string;
   zenPoints: number;
+  adPoints?: number; // Ad Points
   foodCount: number;
   cornCount?: number; // Premium food
   medicineCount?: number; // New item

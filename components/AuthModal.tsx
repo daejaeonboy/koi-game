@@ -25,9 +25,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onGuestPl
         try {
             suppressLocalGameSave();
             await login();
-            // 게스트 데이터가 로그인 계정에 섞이지 않도록, 로그인 직후 로컬 진행 데이터를 초기화합니다.
             clearLocalGameSaves();
-            onClose(); // 성공 시 모달 닫기
+            onClose();
             window.location.reload();
         } catch (error) {
             resumeLocalGameSave();
@@ -38,25 +37,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onGuestPl
     return (
         <div className="auth-modal-overlay">
             <div className="auth-modal-content">
-                <h2>🎏 Zen Koi Garden</h2>
+                <h1 className="auth-title">Koi Garden</h1>
                 <div className="auth-modal-body">
                     <p className="auth-description">
-                        온라인 기능을 이용하려면 로그인이 필요합니다.<br />
-                        로그인하면 친구들과 잉어를 거래할 수 있습니다!
+                        아름다운 잉어들과 함께하는 힐링의 시간<br />
+                        로그인하고 나만의 연못을 저장하세요.
                     </p>
 
                     <button className="auth-btn google" onClick={handleGoogleLogin}>
-                        🔐 Google로 로그인
+                        Google로 로그인
                     </button>
 
                     <div className="divider">또는</div>
 
                     <button className="auth-btn guest" onClick={onGuestPlay}>
-                        🎮 게스트로 시작
+                        게스트로 시작
                     </button>
 
                     <div className="auth-warning">
-                        ⚠️ 게스트 플레이 데이터는 나중에 온라인 계정으로 연결할 수 없습니다.
+                        게스트 모드는 데이터가 계정에 저장되지 않아<br />
+                        앱 삭제 시 복구가 불가능할 수 있습니다.
                     </div>
                 </div>
             </div>

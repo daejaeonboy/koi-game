@@ -123,7 +123,7 @@ export const App: React.FC = () => {
   const { user, loading: authLoading, logout: logoutFromContext } = useAuth();
 
   // AP (Ad Points) State
-  const [adPoints, setAdPoints] = useState(0);
+  const [adPoints, setAdPoints] = useState(savedState?.adPoints ?? 500);
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [adWatchProgress, setAdWatchProgress] = useState(0);
@@ -141,7 +141,7 @@ export const App: React.FC = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Game States
-  const [zenPoints, setZenPoints] = useState(savedState?.zenPoints ?? (import.meta.env.DEV ? 10000 : 1000));
+  const [zenPoints, setZenPoints] = useState(savedState?.zenPoints ?? (import.meta.env.DEV ? 10000 : 2000));
   const [isFeedModeActive, setIsFeedModeActive] = useState(false);
   const [breedingSelection, setBreedingSelection] = useState<string[]>([]);
   const [honorPoints, setHonorPoints] = useState(savedState?.honorPoints ?? 0);
@@ -263,13 +263,14 @@ export const App: React.FC = () => {
       ponds,
       activePondId,
       zenPoints,
+      adPoints,
       foodCount,
       cornCount,
       medicineCount,
       honorPoints,
       koiNameCounter,
     };
-  }, [ponds, activePondId, zenPoints, foodCount, cornCount, medicineCount, honorPoints, koiNameCounter]);
+  }, [ponds, activePondId, zenPoints, adPoints, foodCount, cornCount, medicineCount, honorPoints, koiNameCounter]);
 
   // Periodic Save (Every 5 seconds) to prevent excessive writes
   useEffect(() => {

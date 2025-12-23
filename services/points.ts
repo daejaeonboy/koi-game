@@ -60,3 +60,9 @@ export const deductAP = async (userId: string, amount: number): Promise<boolean>
     }
     return false;
 };
+export const setAPBalance = async (userId: string, amount: number): Promise<void> => {
+    const userRef = doc(db, COLLECTION, userId);
+    await updateDoc(userRef, {
+        ap: amount
+    });
+};

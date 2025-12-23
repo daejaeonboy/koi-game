@@ -20,6 +20,8 @@ const KoiListItem: React.FC<{
   const albinoAlleles = koi.genetics.albinoAlleles || [false, false];
   const isAlbino = albinoAlleles[0] && albinoAlleles[1];
   const bodyColor = getDisplayColor(phenotype as any, koi.genetics.lightness, koi.genetics.saturation, isAlbino);
+  // For display in the list, we want the "intrinsic" genetics (before environmental/growth modifiers)
+  const displayPhenotype = calculateSpotPhenotype(koi.genetics.spotPhenotypeGenes);
   const spotPhenotype = calculateSpotPhenotype(koi.genetics.spotPhenotypeGenes, koi);
 
   const rarityScore = calculateRarityScore(koi);
@@ -170,8 +172,8 @@ const KoiListItem: React.FC<{
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="font-bold text-gray-500">[점]</span>
-            <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
-            <span>선명도: <span className="text-purple-300">{(spotPhenotype.sharpness * 100).toFixed(0)}%</span></span>
+            <span>채도: <span className="text-gray-300">{(displayPhenotype.colorSaturation * 100).toFixed(0)}</span></span>
+            <span>선명도: <span className="text-gray-300">{(displayPhenotype.sharpness * 100).toFixed(0)}</span></span>
           </div>
         </div>
         <div className="mt-1 text-xs text-gray-500 flex gap-2">

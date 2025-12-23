@@ -290,15 +290,13 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
 
     const tier = Math.floor(n / 4);
 
-    // Base weight 0.05 (approx 5% against keep=1.0)
-    // Halves every 4 spots
-    const addWeight = 0.05 * Math.pow(0.5, tier);
+    // 추가 확률: 기본 15% (이전 5%의 3배), 4개마다 절반으로 감소
+    const addWeight = 0.15 * Math.pow(0.5, tier);
 
-    // Delete Weight: Fixed at ~30% probability (0.45 vs 1.0 keep)
-    // User Request: "Enable deletion for <= 4 spots, target ~30% deletion chance everywhere"
-    const deleteWeight = 0.45;
+    // 삭제 확률: 약 20%로 고정
+    const deleteWeight = 0.25;
 
-    // Keep is dominant
+    // 유지 확률: 기본값
     const keepWeight = 1.0;
 
     const totalWeight = addWeight + deleteWeight + keepWeight;
@@ -337,11 +335,9 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
             let shape = spot.shape || Object.values(SpotShape)[Math.floor(Math.random() * 3)];
             const { min, max } = getSpotSizeRange(shape);
 
-            // Position Inheritance with Jitter
-            // Instead of random position, keep parent position with slight variation (+/- 5%)
-            const POSITION_JITTER = 5;
-            const childX = Math.max(0, Math.min(100, spot.x + (Math.random() - 0.5) * POSITION_JITTER * 2));
-            const childY = Math.max(0, Math.min(100, spot.y + (Math.random() - 0.5) * POSITION_JITTER * 2));
+            // 점 위치: 완전 무작위 배치 (부모 위치 무시)
+            const childX = Math.random() * 100;
+            const childY = Math.random() * 100;
 
             childSpots.push({
                 x: childX,
@@ -594,9 +590,9 @@ const applyGeneInteractions = (expressed: Record<keyof SpotPhenotypeGenes, numbe
         for (const interaction of interactions) {
             const partnerValue = expressed[interaction.partner];
             const ownValue = expressed[key];
-            if (interaction.type === 'synergy' && partnerValue > 0.6 && ownValue > 0.6) {
-                result[key] = Math.min(1, result[key] * (1 + interaction.strength));
-            } else if (interaction.type === 'antagonism' && partnerValue > 0.7) {
+            if (interaction.type === 'synergy' && partnerValue > 60 && ownValue > 60) {
+                result[key] = Math.min(100, result[key] * (1 + interaction.strength));
+            } else if (interaction.type === 'antagonism' && partnerValue > 70) {
                 result[key] = Math.max(0, result[key] * (1 - interaction.strength));
             }
         }
@@ -669,8 +665,8 @@ export const expressGene = (geneAlleles: GeneAlleles, geneId?: keyof SpotPhenoty
 export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes | undefined, koi?: Koi): SpotPhenotype => {
     if (!genes) {
         return {
-            colorSaturation: 1.0,
-            sharpness: 1.0,
+            colorSaturation: 0.5, // Default to 50%
+            sharpness: 0.5,        // Default to 50%
             activeTraits: []
         };
     }
@@ -686,8 +682,8 @@ export const calculateSpotPhenotype = (genes: SpotPhenotypeGenes | undefined, ko
     });
 
     const afterInteractions = applyGeneInteractions(expressed);
-    let CS = afterInteractions.CS ?? 70; // Default fallback
-    let ES = afterInteractions.ES ?? 70; // Default fallback
+    let CS = afterInteractions.CS ?? 50; // Default fallback
+    let ES = afterInteractions.ES ?? 50; // Default fallback
 
     if (checkHiddenRecessiveActivation(genes)) {
         CS = Math.min(100, CS * 1.2);
@@ -743,22 +739,25 @@ export const breedSpotPhenotypeGenes = (parent1Genes: SpotPhenotypeGenes, parent
     const geneIds = Object.keys(parent1Genes) as (keyof SpotPhenotypeGenes)[];
 
     for (const geneId of geneIds) {
-        const allele1 = Math.random() < 0.5 ? parent1Genes[geneId].allele1 : parent1Genes[geneId].allele2;
-        const allele2 = Math.random() < 0.5 ? parent2Genes[geneId].allele1 : parent2Genes[geneId].allele2;
+        // Calculate average from all 4 parent alleles (2 from each parent)
+        const p1Avg = (parent1Genes[geneId].allele1.value + parent1Genes[geneId].allele2.value) / 2;
+        const p2Avg = (parent2Genes[geneId].allele1.value + parent2Genes[geneId].allele2.value) / 2;
+        const totalAvg = (p1Avg + p2Avg) / 2;
 
-        // Mutation logic: 20% chance, +/- 5 range, more likely to decrease if high
+        // Mutation logic: Consistent with Lightness/Saturation inheritance
         const mutate = (val: number) => {
-            if (Math.random() > 0.2) return val;
-
-            // "Improvement is hard": If value is high (>60), mutation is biased downwards
-            const bias = val > 60 ? -1.5 : 0;
-            const change = (Math.random() - 0.5) * 10 + bias; // range -5 to +5 (biased if high)
-            return Math.max(0, Math.min(100, Math.round(val + change)));
+            if (Math.random() < LIGHTNESS_MUTATION_CHANCE) {
+                const mutation = (Math.random() - 0.5) * 2 * LIGHTNESS_MUTATION_AMOUNT;
+                return Math.max(0, Math.min(100, Math.round(val + mutation)));
+            }
+            return Math.round(val);
         };
 
+        const finalValue = mutate(totalAvg);
+
         offspringGenes[geneId] = {
-            allele1: { value: mutate(allele1.value), origin: 'maternal' },
-            allele2: { value: mutate(allele2.value), origin: 'paternal' },
+            allele1: { value: finalValue, origin: 'maternal' },
+            allele2: { value: finalValue, origin: 'paternal' },
             dominanceType: GENE_DOMINANCE_CONFIG[geneId],
         };
     }
@@ -768,4 +767,17 @@ export const breedSpotPhenotypeGenes = (parent1Genes: SpotPhenotypeGenes, parent
 export const createDefaultSpotPhenotypeGenes = (): SpotPhenotypeGenes => ({
     CS: { allele1: { value: 70, origin: 'maternal' }, allele2: { value: 70, origin: 'paternal' }, dominanceType: GENE_DOMINANCE_CONFIG.CS },
     ES: { allele1: { value: 70, origin: 'maternal' }, allele2: { value: 70, origin: 'paternal' }, dominanceType: GENE_DOMINANCE_CONFIG.ES },
+});
+
+export const createFixedSpotPhenotypeGenes = (value: number): SpotPhenotypeGenes => ({
+    CS: {
+        allele1: { value: value, origin: 'maternal' },
+        allele2: { value: value, origin: 'paternal' },
+        dominanceType: GENE_DOMINANCE_CONFIG.CS,
+    },
+    ES: {
+        allele1: { value: value, origin: 'maternal' },
+        allele2: { value: value, origin: 'paternal' },
+        dominanceType: GENE_DOMINANCE_CONFIG.ES,
+    },
 });

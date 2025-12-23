@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Koi, GeneType, Ponds, GrowthStage, Decoration, DecorationType, PondTheme, SpotShape } from '../types';
 import { audioManager } from '../utils/audio';
+import { createFixedSpotPhenotypeGenes } from '../utils/genetics';
 
 const POINTS_TO_JUVENILE = 10;
 const POINTS_TO_ADULT = 20;
@@ -28,7 +29,7 @@ interface UseKoiPondInitialState {
     medicineCount?: number;
 }
 
-const createInitialPonds = (): Ponds => {
+export const createInitialPonds = (): Ponds => {
 
 
     const createSpecificKoi = (id: string, name: string): Koi => {
@@ -53,6 +54,7 @@ const createInitialPonds = (): Ponds => {
                 spots: spots,
                 lightness: 50,
                 saturation: 50,
+                spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50),
             },
             position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
             velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
@@ -97,6 +99,7 @@ const createInitialPonds = (): Ponds => {
                 spots: spots,
                 lightness: 50,
                 saturation: 50,
+                spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50),
             },
             position: { x: Math.random() * 80 + 10, y: Math.random() * 80 + 10 },
             velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
@@ -352,6 +355,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                     spots: initialSpots,
                     lightness: 50, // User Request: Force 50 (Standard)
                     saturation: 50, // User Request: Force 50 (Standard)
+                    spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50), // Standard Sharpness/Saturation
                 },
                 position: { x: 50, y: 50 }, // Center spawn
                 velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },
@@ -599,6 +603,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
     const resetPonds = () => {
         const initial = createInitialPonds();
         setPonds(initial);
+        setActivePondId('pond-1'); // Force sync with initial pond ID
     };
 
     return {

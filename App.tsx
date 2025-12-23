@@ -10,9 +10,9 @@ import { AccountModal } from './components/AccountModal';
 // SettingsModal removed
 
 
-import { useKoiPond } from './hooks/useKoiPond';
+import { breedKoi, calculateKoiValue, getPhenotype, GENE_COLOR_MAP, getDisplayColor, createFixedSpotPhenotypeGenes } from './utils/genetics';
+import { useKoiPond, createInitialPonds } from './hooks/useKoiPond';
 import { Koi, GeneType, KoiGenetics, GrowthStage, Ponds, Decoration, DecorationType, PondTheme, SavedGameState } from './types';
-import { breedKoi, calculateKoiValue, getPhenotype, GENE_COLOR_MAP, getDisplayColor } from './utils/genetics';
 import { Wheat, DollarSign, ShoppingCart, Dna, Settings, User, X } from 'lucide-react';
 import { audioManager } from './utils/audio';
 import { ThemeModal } from './components/ThemeModal';
@@ -28,10 +28,10 @@ import { SessionConflictModal } from './components/SessionConflictModal';
 import { APDisplay } from './components/APDisplay';
 import { AdRewardModal } from './components/AdRewardModal';
 import { AdType, getAdReward, initializeAdMob, showRewardAd } from './services/ads';
-import { listenToAPBalance } from './services/points';
+import { listenToAPBalance, setAPBalance } from './services/points';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './services/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { MarketplaceModal } from './components/MarketplaceModal';
 import { CreateListingModal } from './components/CreateListingModal';
 import { ListingDetailModal } from './components/ListingDetailModal';
@@ -343,7 +343,7 @@ export const App: React.FC = () => {
       // Local Save
       try {
         localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(gameStateRef.current));
-      } catch (e) { console.error("Local save failed:", e); }
+      } catch (error: any) { console.error("Local save failed:", error); }
 
       // Cloud Save (Only if logged in and ready)
       if (user && isCloudSyncReady) {
@@ -353,9 +353,9 @@ export const App: React.FC = () => {
         }
         try {
           await saveGameToCloud(user.uid, gameStateRef.current);
-        } catch (e) {
-          if (e.code !== 'unavailable') {
-            console.error("Cloud save failed:", e);
+        } catch (error: any) {
+          if (error.code !== 'unavailable') {
+            console.error("Cloud save failed:", error);
           }
         }
       }
@@ -403,8 +403,8 @@ export const App: React.FC = () => {
             };
             localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(stateToSave));
             await saveGameToCloud(user.uid, stateToSave);
-          } catch (e) {
-            console.error('[Claimer] Failed to clear claimed kois or sync:', e);
+          } catch (error: any) {
+            console.error('[Claimer] Failed to clear claimed kois or sync:', error);
           }
         }
       }
@@ -462,45 +462,37 @@ export const App: React.FC = () => {
     setNotification({ message: '닉네임이 저장되었습니다.', type: 'success' });
   }, [user]);
 
-  // Ad watching handler
-  const handleWatchAd = async (adType: AdType) => {
+  // Ad watching handler - 임시 시스템: 15초 후 200 AP 지급 (에드센스 승인 전)
+  const handleWatchAd = async (_adType: AdType) => {
     setIsWatchingAd(true);
-    setAdWatchProgress(0); // Not used anymore but kept state
 
     try {
-      // Show real ad
+      // 15초 대기 (mock 광고 시청 시뮬레이션)
       const success = await showRewardAd();
 
       setIsWatchingAd(false);
 
       if (success) {
-        const rewardAmount = getAdReward('15sec'); // 200 AP
+        const rewardAmount = 200; // 고정 200 AP
 
+        // 로컬 상태 즉시 업데이트 (로그인 여부와 관계없이)
+        setAdPoints(prev => prev + rewardAmount);
+        setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
+        setIsAdModalOpen(false);
+
+        // 로그인 상태면 Firestore에도 즉시 저장 (백그라운드에서)
         if (user) {
-          // 로그인 상태: 클라우드 함수로 AP 지급 (Firestore 리스너가 자동으로 상태 업데이트)
           try {
-            const callable = httpsCallable(functions, 'rewardAdPoints');
-            const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
-
-            await callable({
-              adType: '15s',  // Server expects '15s' or '30s', not '15sec'
-              verificationToken,
-            });
-            // 성공 시 Firestore 리스너(listenToAPBalance)가 자동으로 setAdPoints 호출
-            setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
-          } catch (cloudError) {
-            console.error('Cloud AP reward failed:', cloudError);
-            setNotification({ message: 'AP 지급 실패. 다시 시도해주세요.', type: 'error' });
+            const userRef = doc(db, 'users', user.uid);
+            const snap = await getDoc(userRef);
+            const currentAp = snap.exists() ? (snap.data()?.ap ?? 0) : 0;
+            await setDoc(userRef, { ap: currentAp + rewardAmount }, { merge: true });
+          } catch (e) {
+            console.error('Failed to sync AP to cloud:', e);
+            // 실패해도 로컬 상태는 이미 업데이트됨
           }
-        } else {
-          // 비로그인 상태: 로컬에만 저장
-          setAdPoints(prev => prev + rewardAmount);
-          setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
         }
-
-        setIsAdModalOpen(false); // Close modal after success
       } else {
-        // Ad was not fully watched or dismissed
         setNotification({ message: '광고 시청이 완료되지 않았습니다.', type: 'error' });
       }
     } catch (error) {
@@ -520,11 +512,18 @@ export const App: React.FC = () => {
     console.log('[Marketplace] Listing created atomically. Updating local state and pausing sync...');
     isMarketplaceOperationPending.current = true; // 자동 저장 일시 중지
 
-    // 등록 비용 차감
-    setAdPoints(prev => {
-      const nextAP = prev - listingFee;
-      return nextAP >= 0 ? nextAP : 0;
-    });
+    // 등록 비용 차감 (로컬 + Firestore 동시 업데이트)
+    const nextAP = Math.max(0, adPoints - listingFee);
+    setAdPoints(nextAP);
+
+    // Firestore에도 즉시 동기화 (리스너가 덮어쓰지 않도록)
+    if (user) {
+      try {
+        await setAPBalance(user.uid, nextAP);
+      } catch (e) {
+        console.error('Failed to sync AP deduction to cloud:', e);
+      }
+    }
 
     setPonds(prev => {
       const next = { ...prev };
@@ -590,13 +589,26 @@ export const App: React.FC = () => {
     setIsCleanConfirmOpen(true);
   };
 
-  const confirmCleanPond = () => {
+  const confirmCleanPond = async () => {
     if (adPoints < CLEANING_COST) {
       setNotification({ message: `AP가 부족합니다! (${CLEANING_COST.toLocaleString()} AP 필요)`, type: 'error' });
       setIsCleanConfirmOpen(false);
       return;
     }
-    setAdPoints(p => p - CLEANING_COST);
+
+    // AP 차감 (로컬 + Firestore 동시 업데이트)
+    const nextAP = adPoints - CLEANING_COST;
+    setAdPoints(nextAP);
+
+    // Firestore에도 즉시 동기화 (리스너가 덮어쓰지 않도록)
+    if (user) {
+      try {
+        await setAPBalance(user.uid, nextAP);
+      } catch (e) {
+        console.error('Failed to sync AP deduction to cloud:', e);
+      }
+    }
+
     audioManager.playSFX('click');
     cleanPond();
     setNotification({ message: '연못을 청소했습니다!', type: 'success' });
@@ -615,14 +627,38 @@ export const App: React.FC = () => {
 
   const handleNewGame = async (): Promise<boolean> => {
     if (!window.confirm("정말 새 게임을 시작하시겠습니까? 현재 진행 상황이 모두 사라집니다.")) return false;
-    localStorage.removeItem(SAVE_GAME_KEY);
-    localStorage.removeItem('zenPoints');
-    resetPonds();
-    setZenPoints(import.meta.env.DEV ? 10000 : 2000);
-    setAdPoints(400);
-    setFoodCount(20);
-    setCornCount(0);
-    setKoiNameCounter(3);
+
+    const initialState: SavedGameState = {
+      ponds: createInitialPonds(),
+      activePondId: 'pond-1',
+      zenPoints: import.meta.env.DEV ? 10000 : 2000,
+      adPoints: 400,
+      foodCount: 20,
+      cornCount: 0,
+      medicineCount: 0,
+      honorPoints: 0,
+      koiNameCounter: 3,
+    };
+
+    if (user) {
+      // 로그인 상태: 클라우드에 즉시 초기화 상태 저장 및 AP 리셋
+      try {
+        await Promise.all([
+          saveGameToCloud(user.uid, initialState),
+          setAPBalance(user.uid, 400)
+        ]);
+      } catch (error) {
+        console.error("Failed to reset cloud game state or AP:", error);
+        if (!window.confirm("클라우드 초기화에 실패했습니다. 그래도 진행하시겠습니까? (다시 로드될 가능성이 있습니다)")) {
+          return false;
+        }
+      }
+    }
+
+    localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(initialState));
+    localStorage.removeItem('zenPoints'); // legacy cleanup
+
+    // 리로드하여 전체 상태를 깨끗하게 반영
     window.location.reload();
     return true;
   };
@@ -794,6 +830,7 @@ export const App: React.FC = () => {
       spots: [],
       lightness: 50, // User Request: Force 50 (Standard)
       saturation: 50, // User Request: Force 50 (Standard)
+      spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50), // Standard Sharpness/Saturation
     };
 
     const newKoi: Koi = {

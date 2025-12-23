@@ -16,6 +16,8 @@ interface KoiDetailModalProps {
 export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, onSell, onRename, totalKoiCount, hideActions }) => {
     const sellValue = calculateKoiValue(koi);
     const canSell = totalKoiCount > 2;
+    // For display in the modal, we want the "intrinsic" genetics (before environmental/growth modifiers)
+    const displayPhenotype = calculateSpotPhenotype(koi.genetics.spotPhenotypeGenes);
     const spotPhenotype = calculateSpotPhenotype(koi.genetics.spotPhenotypeGenes, koi);
 
     const albinoAlleles = koi.genetics.albinoAlleles || [false, false];
@@ -149,8 +151,8 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
                                 <span className="text-gray-500 font-bold w-12 text-center border-r border-gray-700 mr-2">무늬</span>
                                 <div className="flex flex-1 justify-around">
                                     <span>점: <span className="text-cyan-300">{koi.genetics.spots.length}개</span></span>
-                                    <span>채도: <span className="text-orange-300">{(spotPhenotype.colorSaturation * 100).toFixed(0)}%</span></span>
-                                    <span>선명도: <span className="text-purple-300">{(spotPhenotype.sharpness * 100).toFixed(0)}%</span></span>
+                                    <span>채도: <span className="text-gray-300">{(displayPhenotype.colorSaturation * 100).toFixed(0)}</span></span>
+                                    <span>선명도: <span className="text-gray-300">{(displayPhenotype.sharpness * 100).toFixed(0)}</span></span>
                                 </div>
                             </div>
                         </div>

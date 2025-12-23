@@ -12,9 +12,13 @@ export const saveGameToCloud = async (userId: string, gameState: SavedGameState)
     const sanitizedGameState = JSON.parse(JSON.stringify(gameState));
 
     // gameData 필드에 전체 상태 저장
+    // 랭킹 쿼리를 위해 gameData.honorPoints를 최상위 레벨로 명시적으로 저장
     // merge: true를 사용하여 다른 필드(예: profile, ap)를 덮어쓰지 않음
     await setDoc(userRef, {
-        gameData: sanitizedGameState,
+        gameData: {
+            ...sanitizedGameState,
+            honorPoints: gameState.honorPoints ?? 0, // 랭킹 쿼리용
+        },
         lastUpdated: new Date()
     }, { merge: true });
 };

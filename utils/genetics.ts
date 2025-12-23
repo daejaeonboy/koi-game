@@ -471,11 +471,11 @@ export const getDisplayColor = (phenotype: GeneType, lightness: number, saturati
     const hex = GENE_COLOR_MAP[phenotype] || '#000000';
     const hsl = hexToHSL(hex);
 
-    // Apply safe Lightness (Expanded range per user request: 0.4 -> 0.8 multiplier, Min 20 -> 10)
-    // Center is 50. Input 0 -> -40, Input 100 -> +40.
-    // Max extended but clamped to 90 to prevent pure white, Min 10 to prevent pure black
-    let safeLightnessShift = (lightness - 50) * 0.8;
-    let finalL = Math.max(10, Math.min(90, hsl.l + safeLightnessShift));
+    // Apply safe Lightness (Expanded range per user request: 0.8 -> 1.2 multiplier, Min 10 -> 5)
+    // Center is 50. Input 0 -> -60, Input 100 -> +60.
+    // Max extended but clamped to 90 to prevent pure white, Min 5 to prevent pure black
+    let safeLightnessShift = (lightness - 50) * 1.2;
+    let finalL = Math.max(5, Math.min(90, hsl.l + safeLightnessShift));
 
     // ALBINO: Force max lightness (pastel/pale version of base color)
     if (isAlbino) {
@@ -498,8 +498,8 @@ export const getSpineColor = (phenotype: GeneType, lightness: number, saturation
     const finalS = Math.max(10, Math.min(95, hsl.s * saturationMultiplier));
 
     // Apply safe Lightness (Match getDisplayColor logic)
-    const safeLightnessShift = (lightness - 50) * 0.8;
-    let finalL = Math.max(10, Math.min(90, hsl.l + safeLightnessShift));
+    const safeLightnessShift = (lightness - 50) * 1.2;
+    let finalL = Math.max(5, Math.min(90, hsl.l + safeLightnessShift));
 
     // ALBINO: Force max lightness
     if (isAlbino) {

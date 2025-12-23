@@ -238,6 +238,10 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
   const [selectedKoiIds, setSelectedKoiIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'favorites'>('all');
 
+  const sortedPonds = useMemo(() => {
+    return Object.values(ponds).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+  }, [ponds]);
+
   const handleSort = (option: SortOption) => {
     setSortOption(option);
   };
@@ -306,7 +310,7 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
         {/* Header - Tabs System */}
         <div className="flex justify-between items-center p-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-            {Object.values(ponds).map((pond, idx) => (
+            {sortedPonds.map((pond) => (
               <button
                 key={pond.id}
                 onClick={() => onPondChange(pond.id)}
@@ -315,7 +319,7 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
                   : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200 hover:border-gray-600'
                   }`}
               >
-                연못 {idx + 1}
+                {pond.name}
               </button>
             ))}
           </div>
@@ -433,10 +437,10 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
         {selectedKoiIds.size > 0 && (
           <div className="p-4 border-t border-gray-700 bg-gray-900/80 backdrop-blur-sm flex justify-end gap-3 rounded-b-lg flex-wrap">
             {/* Move Buttons - Show direct options if multiple ponds exist */}
-            {Object.values(ponds).length > 1 && (
+            {sortedPonds.length > 1 && (
               <div className="flex items-center gap-2 mr-auto bg-black/30 p-1 rounded-lg">
                 <span className="text-xs text-gray-400 px-2">이동:</span>
-                {Object.values(ponds).filter(p => p.id !== activePondId).map(targetPond => (
+                {sortedPonds.filter(p => p.id !== activePondId).map(targetPond => (
                   <button
                     key={targetPond.id}
                     onClick={() => onMove(koiList.filter(k => selectedKoiIds.has(k.id)), targetPond.id)}

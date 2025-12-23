@@ -474,14 +474,10 @@ export const App: React.FC = () => {
       setIsWatchingAd(false);
 
       if (success) {
-        // Award AP locally first (works without login)
         const rewardAmount = getAdReward('15sec'); // 200 AP
 
-        // Grant AP locally
-        setAdPoints(prev => prev + rewardAmount);
-
-        // Try to sync to cloud if logged in (fire and forget)
         if (user) {
+          // 로그인 상태: 클라우드 함수로 AP 지급 (Firestore 리스너가 자동으로 상태 업데이트)
           try {
             const callable = httpsCallable(functions, 'rewardAdPoints');
             const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
@@ -490,12 +486,18 @@ export const App: React.FC = () => {
               adType: '15sec',
               verificationToken,
             });
+            // 성공 시 Firestore 리스너(listenToAPBalance)가 자동으로 setAdPoints 호출
+            setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
           } catch (cloudError) {
-            console.error('Cloud sync failed (AP still granted locally):', cloudError);
+            console.error('Cloud AP reward failed:', cloudError);
+            setNotification({ message: 'AP 지급 실패. 다시 시도해주세요.', type: 'error' });
           }
+        } else {
+          // 비로그인 상태: 로컬에만 저장
+          setAdPoints(prev => prev + rewardAmount);
+          setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
         }
 
-        setNotification({ message: `+${rewardAmount} AP 획득!`, type: 'success' });
         setIsAdModalOpen(false); // Close modal after success
       } else {
         // Ad was not fully watched or dismissed

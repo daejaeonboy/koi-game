@@ -35,13 +35,8 @@ export const loginWithGoogle = async () => {
             const credential = GoogleAuthProvider.credential(idToken ?? undefined, accessToken ?? undefined);
             await signInWithCredential(auth, credential);
         } else {
-            // 웹 환경
-            if (isMobile()) {
-                // 모바일 웹에서는 리다이렉트 방식 사용 (팝업 차단/인앱 브라우저 대응)
-                await signInWithRedirect(auth, googleProvider);
-            } else {
-                await signInWithPopup(auth, googleProvider);
-            }
+            // 웹 환경: 팝업 방식 사용 (리다이렉트는 도메인 불일치 이슈 발생)
+            await signInWithPopup(auth, googleProvider);
         }
     } catch (error) {
         console.error("Google Login Error:", error);

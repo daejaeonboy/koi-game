@@ -143,6 +143,7 @@ export const App: React.FC = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMarketplaceOperationPending = useRef(false);
   const feedingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const feedingDelayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPointerPosRef = useRef<{ x: number, y: number } | null>(null);
   const [zenPoints, setZenPoints] = useState(savedState?.zenPoints ?? (import.meta.env.DEV ? 10000 : 2000));
   const [isFeedModeActive, setIsFeedModeActive] = useState(false);
@@ -173,10 +174,10 @@ export const App: React.FC = () => {
   // Clear feeding interval on unmount or mode change
   useEffect(() => {
     return () => {
-      if (feedingIntervalRef.current) {
-        clearInterval(feedingIntervalRef.current);
-        feedingIntervalRef.current = null;
-      }
+      if (feedingIntervalRef.current) clearInterval(feedingIntervalRef.current);
+      if (feedingDelayTimeoutRef.current) clearTimeout(feedingDelayTimeoutRef.current);
+      feedingIntervalRef.current = null;
+      feedingDelayTimeoutRef.current = null;
     };
   }, [isFeedModeActive]);
 
@@ -971,6 +972,10 @@ export const App: React.FC = () => {
               clearInterval(feedingIntervalRef.current);
               feedingIntervalRef.current = null;
             }
+            if (feedingDelayTimeoutRef.current) {
+              clearTimeout(feedingDelayTimeoutRef.current);
+              feedingDelayTimeoutRef.current = null;
+            }
           };
 
           const executeDrop = (x: number, y: number, feedAmount: number) => {
@@ -1010,16 +1015,18 @@ export const App: React.FC = () => {
           const y = ((event.clientY - pondRect.top) / pondRect.height) * 100;
           lastPointerPosRef.current = { x, y };
 
-          // Drop first pellet
+          // Drop first pellet immediately
           dropSingleFood(x, y);
 
-          // Start continuous dropping
-          if (!feedingIntervalRef.current) {
-            feedingIntervalRef.current = setInterval(() => {
-              if (lastPointerPosRef.current) {
-                dropSingleFood(lastPointerPosRef.current.x, lastPointerPosRef.current.y);
-              }
-            }, 200); // 200ms interval for continuous feeding
+          // Start continuous dropping after a short delay (long press detection)
+          if (!feedingIntervalRef.current && !feedingDelayTimeoutRef.current) {
+            feedingDelayTimeoutRef.current = setTimeout(() => {
+              feedingIntervalRef.current = setInterval(() => {
+                if (lastPointerPosRef.current) {
+                  dropSingleFood(lastPointerPosRef.current.x, lastPointerPosRef.current.y);
+                }
+              }, 250); // Slightly slower interval for better control
+            }, 350); // 350ms delay before continuous feeding starts
           }
         } else {
           setIsFeedModeActive(false);
@@ -1053,6 +1060,10 @@ export const App: React.FC = () => {
     if (feedingIntervalRef.current) {
       clearInterval(feedingIntervalRef.current);
       feedingIntervalRef.current = null;
+    }
+    if (feedingDelayTimeoutRef.current) {
+      clearTimeout(feedingDelayTimeoutRef.current);
+      feedingDelayTimeoutRef.current = null;
     }
     lastPointerPosRef.current = null;
   }, []);

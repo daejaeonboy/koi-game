@@ -142,8 +142,8 @@ export const App: React.FC = () => {
   const [isCloudSyncReady, setIsCloudSyncReady] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMarketplaceOperationPending = useRef(false);
-
-  // Game States
+  const feedingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPointerPosRef = useRef<{ x: number, y: number } | null>(null);
   const [zenPoints, setZenPoints] = useState(savedState?.zenPoints ?? (import.meta.env.DEV ? 10000 : 2000));
   const [isFeedModeActive, setIsFeedModeActive] = useState(false);
   const [breedingSelection, setBreedingSelection] = useState<string[]>([]);
@@ -169,6 +169,16 @@ export const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  // Clear feeding interval on unmount or mode change
+  useEffect(() => {
+    return () => {
+      if (feedingIntervalRef.current) {
+        clearInterval(feedingIntervalRef.current);
+        feedingIntervalRef.current = null;
+      }
+    };
+  }, [isFeedModeActive]);
 
   // Initialize audio on first interaction
   useEffect(() => {
@@ -944,74 +954,108 @@ export const App: React.FC = () => {
 
 
 
-  const handlePondClick = useCallback((event: React.MouseEvent<HTMLElement>, koi?: Koi) => {
-    // Feed Mode Logic (now also Action Mode for everything)
+  const handlePondPointerDown = useCallback((event: React.PointerEvent<HTMLElement> | React.MouseEvent<HTMLElement>, koi?: Koi) => {
+    // Feed Mode Logic
     if (isFeedModeActive) {
       if (selectedFoodType === 'medicine') {
-        // Medicine Logic (Global Cure)
-        // Can be triggered by clicking anywhere (pond or fish)
-        // Apply Global Cure -> Open Confirm Modal
         if ((medicineCount || 0) <= 0) {
           setNotification({ message: '치료제가 없습니다!', type: 'error' });
           return;
         }
         setIsMedicineConfirmOpen(true);
-
-        // Optional: Reset mode after use? Or keep it? Keeping it allows spamming if needed (though global cures all).
-        // Since it's global and costs money, maybe safer to reset? But user might have multiple bottles.
-        // Let's keep it active but maybe the notification is enough.
       } else {
         // Food Logic (Normal / Corn)
         if (!koi) {
-          // Check if selected food type is available
-          const useCorn = selectedFoodType === 'corn' && cornCount > 0;
-          const useFood = selectedFoodType === 'normal' && foodCount > 0;
+          const stopFeeding = () => {
+            if (feedingIntervalRef.current) {
+              clearInterval(feedingIntervalRef.current);
+              feedingIntervalRef.current = null;
+            }
+          };
 
-          if (!useCorn && !useFood) return;
+          const executeDrop = (x: number, y: number, feedAmount: number) => {
+            audioManager.playSFX('plop');
+            dropFood({ x, y }, feedAmount);
+            const dropAnimId = Date.now();
+            setFoodDropAnimations(p => [...p, { id: dropAnimId, position: { x, y } }]);
+            setTimeout(() => {
+              setFoodDropAnimations(p => p.filter(a => a.id !== dropAnimId));
+            }, 1000);
+          };
 
-          if (useCorn) {
-            setCornCount(c => c - 1);
-          } else if (useFood) {
-            setFoodCount(c => c - 1);
-          } else {
-            return;
-          }
-          audioManager.playSFX('plop');
+          const dropSingleFood = (x: number, y: number) => {
+            if (selectedFoodType === 'corn') {
+              setCornCount(prev => {
+                if (prev <= 0) {
+                  stopFeeding();
+                  return 0;
+                }
+                executeDrop(x, y, 2);
+                return prev - 1;
+              });
+            } else if (selectedFoodType === 'normal') {
+              setFoodCount(prev => {
+                if (prev <= 0) {
+                  stopFeeding();
+                  return 0;
+                }
+                executeDrop(x, y, 1);
+                return prev - 1;
+              });
+            }
+          };
 
-          const pondRect = event.currentTarget.getBoundingClientRect();
+          const pondRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
           const x = ((event.clientX - pondRect.left) / pondRect.width) * 100;
           const y = ((event.clientY - pondRect.top) / pondRect.height) * 100;
+          lastPointerPosRef.current = { x, y };
 
-          const feedAmount = useCorn ? 2 : 1;
-          dropFood({ x, y }, feedAmount);
+          // Drop first pellet
+          dropSingleFood(x, y);
 
-          const dropAnimId = Date.now();
-          setFoodDropAnimations(prev => [...prev, { id: dropAnimId, position: { x, y } }]);
-          setTimeout(() => {
-            setFoodDropAnimations(prev => prev.filter(a => a.id !== dropAnimId));
-          }, 1000);
+          // Start continuous dropping
+          if (!feedingIntervalRef.current) {
+            feedingIntervalRef.current = setInterval(() => {
+              if (lastPointerPosRef.current) {
+                dropSingleFood(lastPointerPosRef.current.x, lastPointerPosRef.current.y);
+              }
+            }, 200); // 200ms interval for continuous feeding
+          }
         } else {
-          // If koi is clicked while feed mode is active (but not medicine), deactivate feed mode
-          // AND continue to selection logic below (do not return)
           setIsFeedModeActive(false);
         }
       }
     }
 
-    // Selection Logic (Only if NOT healing)
+    // Selection Logic
     if (koi && !(isFeedModeActive && selectedFoodType === 'medicine')) {
       audioManager.playSFX('click');
-      // ... (existing selection logic)
       if (breedingSelection.includes(koi.id)) {
         setBreedingSelection(prev => prev.filter(id => id !== koi.id));
       } else {
         setBreedingSelection(prev => [...prev, koi.id]);
       }
     } else if (!koi) {
-      // Background click clears selection
       setBreedingSelection([]);
     }
-  }, [isFeedModeActive, breedingSelection, foodCount, cornCount, medicineCount, selectedFoodType, dropFood, setFoodCount, setCornCount, setMedicineCount, cureAllKoi, audioManager, setNotification, setFoodDropAnimations]);
+  }, [isFeedModeActive, breedingSelection, foodCount, cornCount, medicineCount, selectedFoodType, dropFood, audioManager, setNotification, setFoodDropAnimations]);
+
+  const handlePondPointerMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    if (feedingIntervalRef.current) {
+      const pondRect = event.currentTarget.getBoundingClientRect();
+      const x = ((event.clientX - pondRect.left) / pondRect.width) * 100;
+      const y = ((event.clientY - pondRect.top) / pondRect.height) * 100;
+      lastPointerPosRef.current = { x, y };
+    }
+  }, []);
+
+  const handlePondPointerUp = useCallback(() => {
+    if (feedingIntervalRef.current) {
+      clearInterval(feedingIntervalRef.current);
+      feedingIntervalRef.current = null;
+    }
+    lastPointerPosRef.current = null;
+  }, []);
 
   const handleToggleFeedMode = () => {
     setBreedingSelection([]);
@@ -1054,11 +1098,13 @@ export const App: React.FC = () => {
             decorations={decorations}
             theme={currentTheme}
             onKoiClick={(e, koi) => {
-              handlePondClick(e, koi);
+              handlePondPointerDown(e, koi);
             }}
             onBackgroundClick={(e) => {
-              handlePondClick(e);
+              handlePondPointerDown(e);
             }}
+            onPointerMove={handlePondPointerMove}
+            onPointerUp={handlePondPointerUp}
             isFeedModeActive={isFeedModeActive}
             updateKoiPositions={updateKoiPositions}
             isSellModeActive={false} // No separate sell mode currently

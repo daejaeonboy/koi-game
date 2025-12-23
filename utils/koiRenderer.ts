@@ -318,8 +318,8 @@ export class KoiRenderer {
         this.drawFin(ctx, this.segments[10], 'right', 0.6, 15, transform, finColor, time, 0.05);
 
         // Pelvic: Normal angle (0.2), Smaller size (0.35)
-        this.drawFin(ctx, this.segments[30], 'left', 0.3, 6, transform, finColor, time, 0.5);
-        this.drawFin(ctx, this.segments[30], 'right', 0.3, 6, transform, finColor, time, 0.5);
+        this.drawFin(ctx, this.segments[26], 'left', 0.3, 6, transform, finColor, time, 0.5);
+        this.drawFin(ctx, this.segments[26], 'right', 0.3, 6, transform, finColor, time, 0.5);
 
         // 1. Body Outline (Layer 1)
         ctx.fillStyle = colors.outline;

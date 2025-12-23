@@ -40,6 +40,8 @@ setGlobalOptions({
 const CORS_OPTIONS = [
     "https://koi-garden-abcf5.web.app",
     "https://koi-garden-abcf5.firebaseapp.com",
+    "https://koigarden.shop",
+    "https://www.koigarden.shop",
     "http://localhost:5173",
     "http://localhost:4000",
 ];

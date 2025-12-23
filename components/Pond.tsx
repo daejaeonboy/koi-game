@@ -10,9 +10,11 @@ interface PondProps {
   decorations: Decoration[];
   theme: PondTheme;
   // FIX: Updated MouseEvent to MouseEvent<HTMLElement> to match handler signature in App.tsx
-  onKoiClick: (event: React.MouseEvent<HTMLElement>, koi: KoiType) => void;
-  // FIX: Updated MouseEvent to MouseEvent<HTMLElement> to match handler signature in App.tsx
-  onBackgroundClick: (event: React.MouseEvent<HTMLElement>) => void;
+  onKoiClick: (event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>, koi: KoiType) => void;
+  // FIX: Updated  onKoiClick: (event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>, koi: KoiType) => void;
+  onBackgroundClick: (event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>) => void;
+  onPointerMove?: (event: React.PointerEvent<HTMLElement>) => void;
+  onPointerUp?: (event: React.PointerEvent<HTMLElement>) => void;
   updateKoiPositions: () => void;
   isSellModeActive: boolean;
   isFeedModeActive: boolean;
@@ -90,7 +92,7 @@ const Rocks: React.FC = () => (
   </div>
 );
 
-export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, theme, onKoiClick, onBackgroundClick, updateKoiPositions, isSellModeActive, isFeedModeActive, breedingSelection, sellAnimations, feedAnimations, foodDropAnimations, foodPellets, onFoodEaten, isNight, waterQuality }) => {
+export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, theme, onKoiClick, onBackgroundClick, onPointerMove, onPointerUp, updateKoiPositions, isSellModeActive, isFeedModeActive, breedingSelection, sellAnimations, feedAnimations, foodDropAnimations, foodPellets, onFoodEaten, isNight, waterQuality }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -203,7 +205,7 @@ export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, the
     }
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (!engineRef.current) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -220,7 +222,14 @@ export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, the
   };
 
   return (
-    <div className={getPondClassName()} style={getThemeStyle()} onClick={handleCanvasClick}>
+    <div
+      className={getPondClassName()}
+      style={getThemeStyle()}
+      onPointerDown={handlePointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+    >
       {/* Background Image for Watercolor Theme */}
 
       {/* Water effect */}

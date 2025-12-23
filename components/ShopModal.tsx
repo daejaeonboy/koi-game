@@ -174,10 +174,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                         hasQuantity={true}
                     />
                     <ShopItem
-                        icon={<div className="relative">
-                            <FeedIcon size={40} className="text-yellow-200" />
-                            <div className="absolute -top-1 -right-1 bg-yellow-500 text-[10px] px-1 rounded font-bold">BIG</div>
-                        </div>}
+                        icon={<FeedIcon size={40} className="text-yellow-100" />}
                         title="기본 사료 대용량 (250개)"
                         description="대용량으로 더 오랫동안 먹이를 줄 수 있습니다."
                         price={FOOD_LARGE_PACK_PRICE}
@@ -195,10 +192,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                         hasQuantity={true}
                     />
                     <ShopItem
-                        icon={<div className="relative">
-                            <CornIcon size={40} className="text-yellow-400" />
-                            <div className="absolute -top-1 -right-1 bg-yellow-600 text-[10px] px-1 rounded font-bold">MAX</div>
-                        </div>}
+                        icon={<CornIcon size={40} className="text-yellow-300" />}
                         title="프리미엄 옥수수 대용량 (100개)"
                         description="옥수수 대량 팩입니다. 대규모 양식에 적합합니다."
                         price={CORN_LARGE_PACK_PRICE}

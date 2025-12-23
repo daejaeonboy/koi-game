@@ -141,8 +141,8 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
                             <div className="flex items-center justify-between text-xs bg-gray-800/50 p-1.5 rounded">
                                 <span className="text-gray-500 font-bold w-12 text-center border-r border-gray-700 mr-2">몸</span>
                                 <div className="flex flex-1 justify-around">
-                                    <span>명도: <span className="text-pink-300">{koi.genetics.lightness}</span></span>
-                                    <span>채도: <span className="text-blue-300">{koi.genetics.saturation}</span></span>
+                                    <span>명도: <span className="text-pink-300">{koi.genetics.lightness ?? 50}</span></span>
+                                    <span>채도: <span className="text-blue-300">{koi.genetics.saturation ?? 50}</span></span>
                                 </div>
                             </div>
                             <div className="flex items-center justify-between text-xs bg-gray-800/50 p-1.5 rounded">

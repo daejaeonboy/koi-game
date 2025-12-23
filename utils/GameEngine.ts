@@ -257,8 +257,8 @@ export class GameEngine {
                 // Albino expression: Both alleles must be true (recessive)
                 const albinoAlleles = koiData.genetics.albinoAlleles || [false, false];
                 const isAlbino = albinoAlleles[0] && albinoAlleles[1];
-                const bodyColor = getDisplayColor(baseColorPhenotype, koiData.genetics.lightness, koiData.genetics.saturation, isAlbino);
-                const spineColor = getSpineColor(baseColorPhenotype, koiData.genetics.lightness, koiData.genetics.saturation, isAlbino);
+                const bodyColor = getDisplayColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
+                const spineColor = getSpineColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
 
                 // Calculate Fin Color (Regex logic moved here to run once)
                 // "hsla(h, s%, l%, 1)" -> "hsla(h, s*0.4%, l%, 0.5)"
@@ -303,8 +303,8 @@ export class GameEngine {
                 // Albino expression: Both alleles must be true (recessive)
                 const albinoAlleles = koiData.genetics.albinoAlleles || [false, false];
                 const isAlbino = albinoAlleles[0] && albinoAlleles[1];
-                const bodyColor = getDisplayColor(baseColorPhenotype, koiData.genetics.lightness, koiData.genetics.saturation, isAlbino);
-                const spineColor = getSpineColor(baseColorPhenotype, koiData.genetics.lightness, koiData.genetics.saturation, isAlbino);
+                const bodyColor = getDisplayColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
+                const spineColor = getSpineColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
                 const finColor = bodyColor.replace(/hsla\((\d+),\s*([.\d]+)%,\s*([.\d]+)%,\s*1\)/, (match, h, s, l) => {
                     const desaturatedS = Math.max(0, parseFloat(s) * 0.4);
                     return `hsla(${h}, ${desaturatedS}%, ${l}%, 0.5)`;

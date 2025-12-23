@@ -146,6 +146,13 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                 if (k.stamina === undefined || k.stamina === null) k.stamina = 100;
                 // Developer Fix: Reset stamina if 0 (likely due to fast decay bug)
                 if (k.stamina <= 0) k.stamina = 100;
+                // Migration: Fix old koi with missing/incorrect lightness and saturation
+                if (k.genetics.lightness === undefined || k.genetics.lightness === 100) {
+                    k.genetics.lightness = 50;
+                }
+                if (k.genetics.saturation === undefined || k.genetics.saturation === 100) {
+                    k.genetics.saturation = 50;
+                }
             });
             // pond.theme = PondTheme.NIGHT; // Removed forced override
         });

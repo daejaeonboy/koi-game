@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Palette, Sun, Sparkles, Fish, Dna, DollarSign, Search, Pencil, Check } from 'lucide-react';
+import { X, Palette, Sun, Sparkles, Fish, Dna, DollarSign, Search, Pencil, Check, Star } from 'lucide-react';
 import { Koi, Ponds, PondData, GeneType, GrowthStage, SpotPhenotype } from '../types';
 import { calculateKoiValue, calculateRarityScore, GENE_COLOR_MAP, getPhenotype, GENE_RARITY, getDisplayColor, calculateSpotPhenotype } from '../utils/genetics';
 import { KoiCSSPreview } from './KoiCSSPreview';
@@ -12,7 +12,8 @@ const KoiListItem: React.FC<{
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
   onRename: (id: string, nextName: string) => void;
-}> = ({ koi, index, onViewDetail, isSelected, onToggleSelect, onRename }) => {
+  onToggleFavorite: (id: string) => void;
+}> = ({ koi, index, onViewDetail, isSelected, onToggleSelect, onRename, onToggleFavorite }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -142,6 +143,14 @@ const KoiListItem: React.FC<{
                 >
                   <Pencil size={14} />
                 </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleFavorite(koi.id); }}
+                  className={`p-1 rounded transition-colors ${koi.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
+                  title={koi.isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                  type="button"
+                >
+                  <Star size={18} fill={koi.isFavorite ? "currentColor" : "none"} />
+                </button>
                 <span className="text-xs text-gray-500 font-mono">#{index}</span>
               </>
             )}
@@ -206,6 +215,7 @@ interface PondInfoModalProps {
   onBreed: (kois: Koi[]) => void;
   onMove: (kois: Koi[], targetPondId: string) => void;
   onRenameKoi: (koiId: string, nextName: string) => void;
+  onToggleFavorite: (koiId: string) => void;
 }
 
 type SortOption = 'default' | 'spots_desc' | 'body_lightness_desc' | 'body_saturation_desc' | 'spot_saturation_desc' | 'spot_clarity_desc';
@@ -221,10 +231,12 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
   onSell,
   onBreed,
   onMove,
-  onRenameKoi
+  onRenameKoi,
+  onToggleFavorite
 }) => {
   const [sortOption, setSortOption] = useState<SortOption>('default');
   const [selectedKoiIds, setSelectedKoiIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'all' | 'favorites'>('all');
 
   const handleSort = (option: SortOption) => {
     setSortOption(option);
@@ -316,9 +328,35 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-hidden flex flex-col p-4">
 
+          {/* Tab Selection */}
+          <div className="flex gap-2 mb-4 bg-gray-900/50 p-1 rounded-lg border border-gray-700 flex-shrink-0">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`flex-1 py-1.5 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'all'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-transparent text-gray-400 hover:text-gray-200'
+                }`}
+            >
+              <Fish size={14} />
+              전체
+            </button>
+            <button
+              onClick={() => setActiveTab('favorites')}
+              className={`flex-1 py-1.5 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'favorites'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-transparent text-gray-400 hover:text-gray-200'
+                }`}
+            >
+              <Star size={14} fill={activeTab === 'favorites' ? "currentColor" : "none"} />
+              즐겨찾기
+            </button>
+          </div>
+
           {/* Stats Bar */}
           <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 mb-4 flex-shrink-0 flex justify-between items-center text-lg">
-            <span className="font-mono text-cyan-300">{koiList.length} / 30 마리</span>
+            <span className="font-mono text-cyan-300">
+              {activeTab === 'all' ? `${koiList.length} / 30 마리` : `즐겨찾기 ${koiList.filter(k => k.isFavorite).length}마리`}
+            </span>
             <div className="text-yellow-400 font-bold">
               <span>{zenPoints.toLocaleString()} ZP</span>
             </div>
@@ -357,20 +395,35 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
 
           {/* Koi List */}
           <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-            {sortedKoiList.map((koi, idx) => (
-              <KoiListItem
-                key={koi.id}
-                koi={koi}
-                index={idx + 1}
-                onViewDetail={() => onKoiSelect(koi)}
-                isSelected={selectedKoiIds.has(koi.id)}
-                onToggleSelect={toggleSelect}
-                onRename={onRenameKoi}
-              />
-            ))}
-            {sortedKoiList.length === 0 && (
+            {sortedKoiList
+              .filter(koi => activeTab === 'all' || koi.isFavorite)
+              .map((koi, idx) => (
+                <KoiListItem
+                  key={koi.id}
+                  koi={koi}
+                  index={idx + 1}
+                  onViewDetail={() => onKoiSelect(koi)}
+                  isSelected={selectedKoiIds.has(koi.id)}
+                  onToggleSelect={toggleSelect}
+                  onRename={onRenameKoi}
+                  onToggleFavorite={onToggleFavorite}
+                />
+              ))}
+            {(activeTab === 'all' && sortedKoiList.length === 0) && (
               <div className="text-center text-gray-500 py-10">
                 연못에 물고기가 없습니다.
+              </div>
+            )}
+            {(activeTab === 'favorites' && sortedKoiList.filter(k => k.isFavorite).length === 0) && (
+              <div className="text-center text-gray-500 py-10 flex flex-col items-center gap-3">
+                <Star size={48} className="text-gray-700" />
+                <p>즐겨찾기한 물고기가 없습니다.</p>
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className="text-cyan-400 text-sm hover:underline"
+                >
+                  전체 목록에서 별을 눌러보세요
+                </button>
               </div>
             )}
           </div>

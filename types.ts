@@ -102,6 +102,7 @@ export interface Koi {
   feedCooldownUntil: number | null;
   stamina?: number; // 0-100
   sickTimestamp?: number | null; // Timestamp when sickness started
+  isFavorite?: boolean;
 }
 
 export enum DecorationType {

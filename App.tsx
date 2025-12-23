@@ -102,6 +102,7 @@ export const App: React.FC = () => {
     setMedicineCount,
     cureAllKoi,
     renameKoi,
+    toggleKoiFavorite,
     moveKoi,
   } = useKoiPond(savedState ? { ponds: savedState.ponds, activePondId: savedState.activePondId } : undefined);
 
@@ -1426,6 +1427,7 @@ export const App: React.FC = () => {
             setNotification({ message: '코이들이 새로운 연못으로 이사했습니다!', type: 'success' });
           }}
           onRenameKoi={handleRenameKoi}
+          onToggleFavorite={toggleKoiFavorite}
         />
       }
       {

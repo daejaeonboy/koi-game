@@ -313,10 +313,13 @@ export class KoiRenderer {
         this.drawTail(ctx, this.segments[this.segmentCount - 1], transform, finColor, time);
 
         // Fins
-        this.drawFin(ctx, this.segments[15], 'left', 0.6, 15, transform, finColor, time);
-        this.drawFin(ctx, this.segments[15], 'right', 0.6, 15, transform, finColor, time);
-        this.drawFin(ctx, this.segments[38], 'left', 0.45, 6, transform, finColor, time);
-        this.drawFin(ctx, this.segments[38], 'right', 0.45, 6, transform, finColor, time);
+        // Pectoral: Steeper angle (0.2), Size 0.6
+        this.drawFin(ctx, this.segments[10], 'left', 0.6, 15, transform, finColor, time, 0.05);
+        this.drawFin(ctx, this.segments[10], 'right', 0.6, 15, transform, finColor, time, 0.05);
+
+        // Pelvic: Normal angle (0.2), Smaller size (0.35)
+        this.drawFin(ctx, this.segments[30], 'left', 0.3, 6, transform, finColor, time, 0.5);
+        this.drawFin(ctx, this.segments[30], 'right', 0.3, 6, transform, finColor, time, 0.5);
 
         // 1. Body Outline (Layer 1)
         ctx.fillStyle = colors.outline;
@@ -575,10 +578,10 @@ export class KoiRenderer {
         ctx.restore();
     }
 
-    private drawFin(ctx: CanvasRenderingContext2D, s: Segment, type: 'left' | 'right', sizeScale: number, yOffset: number, toLocal: (x: number, y: number) => { x: number, y: number }, color: string, time: number) {
+    private drawFin(ctx: CanvasRenderingContext2D, s: Segment, type: 'left' | 'right', sizeScale: number, yOffset: number, toLocal: (x: number, y: number) => { x: number, y: number }, color: string, time: number, baseAngleOffset: number = 0.2) {
         // Animation
         const sway = Math.sin(time / 200) * 0.15; // Slow sway
-        const angleOffset = type === 'left' ? (-0.2 - sway) : (0.2 + sway);
+        const angleOffset = type === 'left' ? (-baseAngleOffset - sway) : (baseAngleOffset + sway);
         const angle = s.angle + angleOffset;
         const sideScale = type === 'left' ? 1 : -1;
         const bodyRadius = this.getRadius(this.segments.indexOf(s));

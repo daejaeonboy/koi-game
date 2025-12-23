@@ -1033,8 +1033,8 @@ export const App: React.FC = () => {
                 if (lastPointerPosRef.current) {
                   dropSingleFood(lastPointerPosRef.current.x, lastPointerPosRef.current.y);
                 }
-              }, 250); // Slightly slower interval for better control
-            }, 350); // 350ms delay before continuous feeding starts
+              }, 100); // 100ms interval for faster feeding
+            }, 250); // 250ms delay before continuous feeding starts
           }
         } else {
           setIsFeedModeActive(false);

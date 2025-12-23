@@ -1,11 +1,27 @@
-import { signInWithCredential, signInWithPopup, signInWithRedirect, signOut, User, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithCredential, signInWithPopup, signInWithRedirect, signOut, User, onAuthStateChanged, GoogleAuthProvider, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { isMobile } from '../utils/userAgent';
 
+// 리다이렉트 결과 처리 (모바일 웹 로그인 후 복귀 시 실행)
+export const checkRedirectResult = async () => {
+    try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+            console.log("Redirect login successful:", result.user);
+            return result.user;
+        }
+    } catch (error) {
+        console.error("Redirect Login Result Error:", error);
+        // 여기서 에러를 throw하거나 UI에 표시할 수 있도록 리턴
+        throw error;
+    }
+};
+
 // 로그인
 export const loginWithGoogle = async () => {
+    // ... (rest is same)
     try {
         if (Capacitor.isNativePlatform()) {
             // 모바일 앱(Capacitor) 환경: 네이티브 Google 로그인 → Firebase JS SDK로 브릿지

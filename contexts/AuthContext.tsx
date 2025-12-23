@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User } from 'firebase/auth';
-import { subscribeToAuthChanges, loginWithGoogle, logout } from '../services/auth';
+import { subscribeToAuthChanges, loginWithGoogle, logout, checkRedirectResult } from '../services/auth';
 
 interface AuthContextType {
     user: User | null;
@@ -16,6 +16,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // 리다이렉트 결과 확인 (모바일 웹 로그인 에러 처리용)
+        checkRedirectResult().catch(error => {
+            console.error("Auth Redirect Error:", error);
+            // 필요하다면 여기서 에러 상태를 state에 저장해 알림 표시 가능
+        });
+
         const unsubscribe = subscribeToAuthChanges((currentUser) => {
             setUser(currentUser);
             setLoading(false);

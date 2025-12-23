@@ -21,18 +21,28 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // ============================================
-// 🔒 비용 보호 설정 (매우 엄격)
+// 🔒 비용 보호 설정
 // ============================================
-// - maxInstances: 1 → 동시에 1개만 실행 (비용 최소화)
+// - maxInstances: 10 → cold start 및 503 오류 방지
 // - memory: 256MB → 최소 메모리 (기본 512MB보다 저렴)
 // - timeoutSeconds: 30 → 30초 제한 (무한 실행 방지)
 // - 일일 호출 제한: 1000회 (무료 할당량 내)
 setGlobalOptions({
-    maxInstances: 1,
+    maxInstances: 10,
     region: "asia-northeast1",
     memory: "256MiB",
     timeoutSeconds: 30,
 });
+
+// ============================================
+// CORS 설정 (명시적 도메인 허용)
+// ============================================
+const CORS_OPTIONS = [
+    "https://koi-garden-abcf5.web.app",
+    "https://koi-garden-abcf5.firebaseapp.com",
+    "http://localhost:5173",
+    "http://localhost:4000",
+];
 
 // ============================================
 // 상수 정의
@@ -347,7 +357,7 @@ export const processExpiredAuctions = onSchedule(
 // 4. 즉시 구매
 // ============================================
 export const onBuyNow = onCall(
-    { cors: true },
+    { cors: CORS_OPTIONS },
     async (request) => {
         // 인증 확인
         if (!request.auth) {
@@ -419,17 +429,17 @@ export const onBuyNow = onCall(
                     });
                 }
 
-                // 구매자 AP 차감
-                transaction.update(buyerRef, {
+                // 구매자 AP 차감 및 잉어 추가 (문서가 없어도 동작하도록 set 사용)
+                transaction.set(buyerRef, {
                     ap: admin.firestore.FieldValue.increment(-totalPrice),
                     kois: admin.firestore.FieldValue.arrayUnion(listing.koiData),
-                });
+                }, { merge: true });
 
-                // 판매자에게 AP 지급
+                // 판매자에게 AP 지급 (문서가 없어도 동작하도록 set 사용)
                 const sellerRef = db.doc(`users/${listing.sellerId}`);
-                transaction.update(sellerRef, {
+                transaction.set(sellerRef, {
                     ap: admin.firestore.FieldValue.increment(listing.buyNowPrice),
-                });
+                }, { merge: true });
 
                 // 경매 상태 업데이트
                 transaction.update(listingRef, { status: "sold" });
@@ -471,7 +481,7 @@ export const onBuyNow = onCall(
 // 5. 광고 보상 (서버 검증)
 // ============================================
 export const rewardAdPoints = onCall(
-    { cors: true },
+    { cors: CORS_OPTIONS },
     async (request) => {
         // 인증 확인
         if (!request.auth) {
@@ -552,7 +562,7 @@ export const rewardAdPoints = onCall(
 // 6. 판매 취소 (즉구/경매 공통)
 // ============================================
 export const onCancelListing = onCall(
-    { cors: true },
+    { cors: CORS_OPTIONS },
     async (request) => {
         if (!request.auth) {
             throw new HttpsError("unauthenticated", "Must be logged in");
@@ -621,7 +631,7 @@ export const onCancelListing = onCall(
 const NEW_GAME_DAILY_LIMIT = 3;
 
 export const resetGameData = onCall(
-    { cors: true },
+    { cors: CORS_OPTIONS },
     async (request) => {
         if (!request.auth) {
             throw new HttpsError("unauthenticated", "Must be logged in");

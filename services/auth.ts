@@ -21,7 +21,6 @@ export const checkRedirectResult = async () => {
 
 // 로그인
 export const loginWithGoogle = async () => {
-    // ... (rest is same)
     try {
         if (Capacitor.isNativePlatform()) {
             // 모바일 앱(Capacitor) 환경: 네이티브 Google 로그인 → Firebase JS SDK로 브릿지

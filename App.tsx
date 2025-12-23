@@ -483,7 +483,7 @@ export const App: React.FC = () => {
             const verificationToken = `${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}-${Date.now()}`;
 
             await callable({
-              adType: '15sec',
+              adType: '15s',  // Server expects '15s' or '30s', not '15sec'
               verificationToken,
             });
             // 성공 시 Firestore 리스너(listenToAPBalance)가 자동으로 setAdPoints 호출

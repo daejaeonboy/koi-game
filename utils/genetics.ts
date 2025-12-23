@@ -110,48 +110,63 @@ export const calculateKoiValue = (koi: Koi): number => {
 
     const phenotype = getPhenotype(genetics.baseColorGenes);
 
-    // Base value
-    value += 100;
+    // 1. Base value (Reduced from 100 to 50)
+    value += 50;
 
-    // Value from Phenotype Rarity
-    value += (GENE_RARITY[phenotype] || 1) * 50; // High value for expressed recessive colors
+    // 2. Value from Phenotype Rarity (Multiplier reduced 50 -> 15)
+    value += (GENE_RARITY[phenotype] || 1) * 15;
 
-    // Value from Hidden Genes (Carriers)
+    // 3. Value from Hidden Genes (Carriers) (Reduced multiplier)
     genetics.baseColorGenes.forEach(gene => {
         if (gene !== GeneType.CREAM) {
-            value += (GENE_RARITY[gene] || 1) * 5;
+            value += (GENE_RARITY[gene] || 1) * 2;
         }
     });
 
-    // Value from lightness
+    // 4. Value from Lightness (More linear, less explosive)
+    // pow(diff, 1.5) * 1.0 (Max at 50 diff is ~350)
     const lightnessDifference = Math.abs(genetics.lightness - 50);
-    value += Math.pow(lightnessDifference, 2) * 0.5;
+    value += Math.pow(lightnessDifference, 1.5) * 1.0;
 
-    // Value from spots
-    const spotValue = genetics.spots.length * 5;
-    const spotBonus = Math.pow(genetics.spots.length, 1.5) * 2;
-    value += spotValue + spotBonus;
+    // 5. Value from Body Saturation (Extremes are better)
+    // abs(sat - 50) * 2 (Max at 50 diff is 100)
+    const saturationDifference = Math.abs((genetics.saturation ?? 50) - 50);
+    value += saturationDifference * 2;
 
+    // 6. Value from Spots
+    // Tiered bonus based on count (Multiples of 4)
+    const spotCount = genetics.spots.length;
+    let spotTierBonus = 0;
+    if (spotCount >= 12) spotTierBonus = 400;
+    else if (spotCount >= 8) spotTierBonus = 150;
+    else if (spotCount >= 4) spotTierBonus = 50;
+
+    // Base spot value and color rarity
     const spotColorValue = genetics.spots.reduce((sum, spot) => sum + (GENE_RARITY[spot.color] || 1), 0);
-    value += spotColorValue * 3;
+    value += spotTierBonus + (spotColorValue * 2);
 
-    // Multiplier for growth stage
+    // 7. Value from Spot Phenotype (Saturation & Sharpness Extremes)
+    const spotPheno = calculateSpotPhenotype(genetics.spotPhenotypeGenes, koi);
+    const spotSatDiff = Math.abs(spotPheno.colorSaturation - 50);
+    const spotSharpDiff = Math.abs(spotPheno.sharpness - 50);
+    value += (spotSatDiff * 1.5) + (spotSharpDiff * 1.5);
+
+    // 8. Multiplier for growth stage
     if (growthStage === GrowthStage.ADULT) {
         value *= 2;
     } else if (growthStage === GrowthStage.JUVENILE) {
         value *= 1.5;
-    } else {
-        value *= 1;
     }
 
-    // Stamina/Health Penalties
-    if ((koi.stamina ?? 0) <= 10 || koi.sickTimestamp) {
+    // 9. Stamina/Health Penalties
+    const stamina = koi.stamina ?? 0;
+    if (stamina <= 10 || koi.sickTimestamp) {
         return 0;
     }
-    else if ((koi.stamina ?? 0) <= 40) {
+    else if (stamina <= 40) {
         value *= 0.25;
     }
-    else if ((koi.stamina ?? 0) <= 60) {
+    else if (stamina <= 60) {
         value *= 0.5;
     }
 

@@ -161,6 +161,12 @@ export const App: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' | 'error' } | null>(null);
 
+  // Latest state refs for interval access
+  const latestFoodCountsRef = useRef({ food: foodCount, corn: cornCount, type: selectedFoodType });
+  useEffect(() => {
+    latestFoodCountsRef.current = { food: foodCount, corn: cornCount, type: selectedFoodType };
+  }, [foodCount, cornCount, selectedFoodType]);
+
   // Clear notification after 3 seconds
   useEffect(() => {
     if (notification) {
@@ -989,24 +995,26 @@ export const App: React.FC = () => {
           };
 
           const dropSingleFood = (x: number, y: number) => {
-            if (selectedFoodType === 'corn') {
-              setCornCount(prev => {
-                if (prev <= 0) {
-                  stopFeeding();
-                  return 0;
-                }
-                executeDrop(x, y, 2);
-                return prev - 1;
-              });
-            } else if (selectedFoodType === 'normal') {
-              setFoodCount(prev => {
-                if (prev <= 0) {
-                  stopFeeding();
-                  return 0;
-                }
-                executeDrop(x, y, 1);
-                return prev - 1;
-              });
+            const { food, corn, type } = latestFoodCountsRef.current;
+
+            if (type === 'corn') {
+              if (corn <= 0) {
+                stopFeeding();
+                return;
+              }
+              setCornCount(prev => prev - 1);
+              // Update ref immediately for interval consistency
+              latestFoodCountsRef.current.corn -= 1;
+              executeDrop(x, y, 2);
+            } else if (type === 'normal') {
+              if (food <= 0) {
+                stopFeeding();
+                return;
+              }
+              setFoodCount(prev => prev - 1);
+              // Update ref immediately for interval consistency
+              latestFoodCountsRef.current.food -= 1;
+              executeDrop(x, y, 1);
             }
           };
 

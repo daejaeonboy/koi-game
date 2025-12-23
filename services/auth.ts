@@ -1,7 +1,8 @@
-import { signInWithCredential, signInWithPopup, signOut, User, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithCredential, signInWithPopup, signInWithRedirect, signOut, User, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+import { isMobile } from '../utils/userAgent';
 
 // 로그인
 export const loginWithGoogle = async () => {
@@ -20,7 +21,12 @@ export const loginWithGoogle = async () => {
             await signInWithCredential(auth, credential);
         } else {
             // 웹 환경
-            await signInWithPopup(auth, googleProvider);
+            if (isMobile()) {
+                // 모바일 웹에서는 리다이렉트 방식 사용 (팝업 차단/인앱 브라우저 대응)
+                await signInWithRedirect(auth, googleProvider);
+            } else {
+                await signInWithPopup(auth, googleProvider);
+            }
         }
     } catch (error) {
         console.error("Google Login Error:", error);

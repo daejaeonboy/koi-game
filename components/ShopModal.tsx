@@ -48,7 +48,9 @@ interface ShopModalProps {
     onClose: () => void;
     zenPoints: number;
     onBuyFood: (quantity: number) => void;
+    onBuyFoodLarge: (quantity: number) => void;
     onBuyCorn: (quantity: number) => void;
+    onBuyCornLarge: (quantity: number) => void;
     onBuyMedicine: (quantity: number) => void;
 
     onBuyKoi: (color: GeneType) => void;
@@ -59,7 +61,9 @@ interface ShopModalProps {
 }
 
 const FOOD_PACK_PRICE = 200;
+const FOOD_LARGE_PACK_PRICE = 1000;
 const CORN_PACK_PRICE = 500;
+const CORN_LARGE_PACK_PRICE = 2500;
 const MEDICINE_PRICE = 3000;
 const RARE_KOI_PRICE = 30000;
 const TROPHY_PRICE = 100000;
@@ -129,7 +133,7 @@ const ShopItem: React.FC<{
 };
 
 
-export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyFood, onBuyCorn, onBuyMedicine, onBuyKoi, onBuyTrophy, onBuyPond, pondCount, honorPoints }) => {
+export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyFood, onBuyFoodLarge, onBuyCorn, onBuyCornLarge, onBuyMedicine, onBuyKoi, onBuyTrophy, onBuyPond, pondCount, honorPoints }) => {
 
     return (
         <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
@@ -170,12 +174,36 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyF
                         hasQuantity={true}
                     />
                     <ShopItem
+                        icon={<div className="relative">
+                            <FeedIcon size={40} className="text-yellow-200" />
+                            <div className="absolute -top-1 -right-1 bg-yellow-500 text-[10px] px-1 rounded font-bold">BIG</div>
+                        </div>}
+                        title="기본 사료 대용량 (250개)"
+                        description="대용량으로 더 오랫동안 먹이를 줄 수 있습니다."
+                        price={FOOD_LARGE_PACK_PRICE}
+                        onBuy={(q) => onBuyFoodLarge(q)}
+                        canAfford={(q) => zenPoints >= FOOD_LARGE_PACK_PRICE * q}
+                        hasQuantity={true}
+                    />
+                    <ShopItem
                         icon={<CornIcon size={40} className="text-yellow-300" />}
                         title="프리미엄 옥수수 (20개)"
                         description="일반 먹이보다 2배 효과! 코이가 빠르게 성장합니다."
                         price={CORN_PACK_PRICE}
                         onBuy={(q) => onBuyCorn(q)}
                         canAfford={(q) => zenPoints >= CORN_PACK_PRICE * q}
+                        hasQuantity={true}
+                    />
+                    <ShopItem
+                        icon={<div className="relative">
+                            <CornIcon size={40} className="text-yellow-400" />
+                            <div className="absolute -top-1 -right-1 bg-yellow-600 text-[10px] px-1 rounded font-bold">MAX</div>
+                        </div>}
+                        title="프리미엄 옥수수 대용량 (100개)"
+                        description="옥수수 대량 팩입니다. 대규모 양식에 적합합니다."
+                        price={CORN_LARGE_PACK_PRICE}
+                        onBuy={(q) => onBuyCornLarge(q)}
+                        canAfford={(q) => zenPoints >= CORN_LARGE_PACK_PRICE * q}
                         hasQuantity={true}
                     />
                     <ShopItem

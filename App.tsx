@@ -56,6 +56,10 @@ const CORN_PACK_PRICE = 500; // Premium food
 const CORN_PACK_AMOUNT = 20; // Fewer quantity but 3x effect
 const MEDICINE_PRICE = 3000;
 const CLEANING_COST = 100;
+const FOOD_LARGE_PACK_PRICE = 1000;
+const FOOD_LARGE_PACK_AMOUNT = 250;
+const CORN_LARGE_PACK_PRICE = 2500;
+const CORN_LARGE_PACK_AMOUNT = 100;
 
 const loadGameState = (): SavedGameState | null => {
   try {
@@ -880,21 +884,41 @@ export const App: React.FC = () => {
   const handleBuyFood = (quantity: number) => {
     const cost = FOOD_PACK_PRICE * quantity;
     if (zenPoints < cost) return;
-    setZenPoints(p => p - cost);
+    setZenPoints(p => prevZen(p, cost));
     audioManager.playSFX('purchase');
     setFoodCount(c => c + (FOOD_PACK_AMOUNT * quantity));
     setIsShopModalOpen(false);
-    // No notification
+  }
+
+  const handleBuyFoodLarge = (quantity: number) => {
+    const cost = FOOD_LARGE_PACK_PRICE * quantity;
+    if (zenPoints < cost) return;
+    setZenPoints(p => prevZen(p, cost));
+    audioManager.playSFX('purchase');
+    setFoodCount(c => c + (FOOD_LARGE_PACK_AMOUNT * quantity));
+    setIsShopModalOpen(false);
   }
 
   const handleBuyCorn = (quantity: number) => {
     const cost = CORN_PACK_PRICE * quantity;
     if (zenPoints < cost) return;
-    setZenPoints(p => p - cost);
+    setZenPoints(p => prevZen(p, cost));
     audioManager.playSFX('purchase');
     setCornCount(c => c + (CORN_PACK_AMOUNT * quantity));
     setIsShopModalOpen(false);
   }
+
+  const handleBuyCornLarge = (quantity: number) => {
+    const cost = CORN_LARGE_PACK_PRICE * quantity;
+    if (zenPoints < cost) return;
+    setZenPoints(p => prevZen(p, cost));
+    audioManager.playSFX('purchase');
+    setCornCount(c => c + (CORN_LARGE_PACK_AMOUNT * quantity));
+    setIsShopModalOpen(false);
+  }
+
+  // Helper for zen points deduction
+  const prevZen = (p: number, cost: number) => Math.max(0, p - cost);
 
   const handleBuyMedicine = (quantity: number) => {
     const cost = MEDICINE_PRICE * quantity;
@@ -1317,7 +1341,9 @@ export const App: React.FC = () => {
             onClose={() => setIsShopModalOpen(false)}
             zenPoints={zenPoints}
             onBuyFood={handleBuyFood}
+            onBuyFoodLarge={handleBuyFoodLarge}
             onBuyCorn={handleBuyCorn}
+            onBuyCornLarge={handleBuyCornLarge}
             onBuyMedicine={handleBuyMedicine}
             onBuyKoi={handleBuyKoi}
             onBuyTrophy={handleBuyTrophy}

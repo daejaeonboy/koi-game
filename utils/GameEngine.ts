@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { Koi, PondTheme, Decoration, DecorationType, SpotPhenotype, GrowthStage } from '../types';
 import { KoiRenderer } from './koiRenderer';
 import { GENE_COLOR_MAP, getPhenotype, getDisplayColor, getSpineColor, calculateSpotPhenotype, getSpotColorWithSaturation } from './genetics';
@@ -57,7 +58,7 @@ export class GameEngine {
     private frameCount = 0;
     private fpsLastTime = 0;
     private currentFPS = 0;
-    private showFPS = true; // 개발자 패널용 FPS 표시
+    private showFPS = import.meta.env.DEV; // 개발자 패널용 FPS 표시 (개발 환경에서만)
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;

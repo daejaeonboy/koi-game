@@ -27,7 +27,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        // 1.5s Fallback Timeout: Force loading completion if Firebase is slow
+        const timeoutId = setTimeout(() => {
+            setLoading(prev => {
+                if (prev) return false;
+                return prev;
+            });
+        }, 1500);
+
+        return () => {
+            clearTimeout(timeoutId);
+            unsubscribe();
+        };
     }, []);
 
     const handleLogin = async () => {

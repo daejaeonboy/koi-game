@@ -14,7 +14,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onGuestPl
     const { login, user, loading } = useAuth();
 
     if (!isOpen) return null;
-    if (loading) return null; // 로딩 중에는 아무것도 안 보여줌 (또는 로딩 스피너)
+    if (loading) {
+        return (
+            <div className="auth-modal-overlay">
+                <div className="auth-modal-content">
+                    <div className="flex justify-center items-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // 이미 로그인 된 상태라면 모달 닫기 (이펙트로 처리하는 게 더 깔끔할 수 있음)
     if (user) {

@@ -40,10 +40,7 @@ export const ensureUserProfileNickname = async (
     const existingNickname = typeof data?.profile?.nickname === 'string' ? data.profile.nickname.trim() : '';
 
     if (existingNickname) {
-        // 마지막 로그인 시간만 갱신
-        await updateDoc(userRef, {
-            'profile.lastLogin': serverTimestamp(),
-        });
+        // 이미 닉네임이 있으면 바로 반환 (불필요한 lastLogin 업데이트 제거로 속도 개선)
         return existingNickname;
     }
 

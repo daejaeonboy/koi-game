@@ -23,7 +23,7 @@ import { SpotGeneticsDebugPanel } from './components/debug/SpotGeneticsDebugPane
 import { useAuth } from './contexts/AuthContext';
 import { AuthModal } from './components/AuthModal';
 import { startSession, listenToActiveDevice } from './services/session';
-import { saveGameToCloud, loadGameFromCloud } from './services/sync';
+import { saveGameToCloud, loadUserDataOnce } from './services/sync';
 import { SessionConflictModal } from './components/SessionConflictModal';
 import { APDisplay } from './components/APDisplay';
 import { AdRewardModal } from './components/AdRewardModal';
@@ -244,30 +244,13 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  // Load AP balance
+  // AP balance와 Nickname은 initSession에서 통합 로드됨
+  // 로그아웃 시 초기화만 처리
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    if (user) {
-      unsubscribe = listenToAPBalance(user.uid, setAdPoints);
-    } else {
-      setAdPoints(0);
-    }
-    return () => unsubscribe && unsubscribe();
-  }, [user]);
-
-  // Load Nickname
-  useEffect(() => {
-    let cancelled = false;
     if (!user) {
+      setAdPoints(0);
       setUserNickname('');
-      return;
     }
-    ensureUserProfileNickname(user.uid, user.displayName, user.email)
-      .then((nickname) => {
-        if (!cancelled) setUserNickname(nickname);
-      })
-      .catch((error) => console.error('Failed to load nickname:', error));
-    return () => { cancelled = true; };
   }, [user]);
 
   const resolvedUserNickname = useMemo(() => {
@@ -312,9 +295,10 @@ export const App: React.FC = () => {
     return () => clearInterval(saveInterval);
   }, []);
 
-  // Session & Cloud Sync Logic
+  // Session & Cloud Sync Logic (통합 최적화: 모든 사용자 데이터를 병렬로 1회 로드)
   useEffect(() => {
     let unsubscribeSession: (() => void) | undefined;
+    let unsubscribeAP: (() => void) | undefined;
     let cancelled = false;
 
     const initSession = async () => {
@@ -329,20 +313,27 @@ export const App: React.FC = () => {
       }
       setIsCloudSyncReady(false);
       try {
-        await startSession(user.uid);
+        // 병렬 실행: 세션 시작 + 사용자 데이터 통합 로드
+        const [, userData] = await Promise.all([
+          startSession(user.uid),
+          loadUserDataOnce(user.uid)
+        ]);
         if (cancelled) return;
 
+        // 통합 데이터에서 한번에 설정
+        if (userData) {
+          if (userData.gameData) handleLoadGame(userData.gameData);
+          if (userData.nickname) setUserNickname(userData.nickname);
+          setAdPoints(userData.ap);
+        }
+
+        // 실시간 구독 설정 (이후 변경사항 감지용)
         unsubscribeSession = listenToActiveDevice(user.uid, () => {
           setIsConflictOpen(true);
         });
-
-        const cloudData = await loadGameFromCloud(user.uid);
-        if (cancelled) return;
+        unsubscribeAP = listenToAPBalance(user.uid, setAdPoints);
 
         cloudReady = true;
-        if (cloudData) {
-          handleLoadGame(cloudData);
-        }
       } catch (error) {
         if (!cancelled) console.error("Session init failed:", error);
       } finally {
@@ -354,6 +345,7 @@ export const App: React.FC = () => {
     return () => {
       cancelled = true;
       if (unsubscribeSession) unsubscribeSession();
+      if (unsubscribeAP) unsubscribeAP();
     };
   }, [user]);
 

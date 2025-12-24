@@ -49,3 +49,29 @@ export const listenToGameData = (userId: string, onUpdate: (data: SavedGameState
         }
     });
 }
+
+// 사용자 데이터 통합 로드 (로그인 시 1회 호출하여 모든 데이터를 한번에 가져옴)
+export interface UserDataSnapshot {
+    gameData: SavedGameState | null;
+    nickname: string | null;
+    ap: number;
+    activeDeviceId: string | null;
+}
+
+export const loadUserDataOnce = async (userId: string): Promise<UserDataSnapshot | null> => {
+    const userRef = doc(db, COLLECTION, userId);
+    const snap = await getDoc(userRef);
+
+    if (!snap.exists()) {
+        return null;
+    }
+
+    const data = snap.data();
+    return {
+        gameData: (data.gameData as SavedGameState) || null,
+        nickname: data.profile?.nickname || null,
+        ap: typeof data.ap === 'number' ? data.ap : 0,
+        activeDeviceId: data.activeDeviceId || null,
+    };
+};
+

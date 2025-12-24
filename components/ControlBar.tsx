@@ -111,7 +111,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   };
 
   return (
-    <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+    <div className="absolute bottom-[calc(3rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
       {/* Main Menu Popup (Centered on Screen) */}
       {isMainMenuOpen && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 flex flex-row gap-2 bg-black/60 p-2 rounded-2xl border border-gray-700 backdrop-blur-md whitespace-nowrap">

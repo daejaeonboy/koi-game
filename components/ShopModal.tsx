@@ -136,8 +136,8 @@ const ShopItem: React.FC<{
 export const ShopModal: React.FC<ShopModalProps> = ({ onClose, zenPoints, onBuyFood, onBuyFoodLarge, onBuyCorn, onBuyCornLarge, onBuyMedicine, onBuyKoi, onBuyTrophy, onBuyPond, pondCount, honorPoints }) => {
 
     return (
-        <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-4 w-full max-w-sm animate-fade-in-up max-h-[85vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-4 w-full max-w-sm animate-fade-in-up max-h-[85dvh] overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold text-yellow-400 flex items-center">
                         <ShoppingCart className="mr-3" />

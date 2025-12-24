@@ -62,7 +62,7 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-4xl max-h-[85dvh] flex flex-col shadow-2xl">
                 {/* Header - Pond Menu Style */}
                 <div className="flex justify-between items-center p-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
@@ -71,8 +71,8 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`px-5 py-2 rounded-md font-bold transition-all whitespace-nowrap text-sm border-2 ${activeTab === tab.id
-                                        ? 'bg-cyan-600 text-white border-cyan-500'
-                                        : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200 hover:border-gray-600'
+                                    ? 'bg-cyan-600 text-white border-cyan-500'
+                                    : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200 hover:border-gray-600'
                                     }`}
                             >
                                 {tab.label}
@@ -103,8 +103,8 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
                                 <div
                                     key={ach.id}
                                     className={`relative p-4 rounded-xl border flex flex-col gap-3 transition-all duration-200 group h-full ${isUnlocked
-                                            ? 'bg-gray-800/80 border-gray-600 shadow-lg hover:border-gray-500'
-                                            : 'bg-gray-900/50 border-gray-800 opacity-60'
+                                        ? 'bg-gray-800/80 border-gray-600 shadow-lg hover:border-gray-500'
+                                        : 'bg-gray-900/50 border-gray-800 opacity-60'
                                         }`}
                                 >
                                     {/* Card Header: Icon & Title */}

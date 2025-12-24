@@ -129,7 +129,7 @@ export const MarketplaceModal: React.FC<MarketplaceModalProps> = ({
                 </div>
 
                 {/* Grid */}
-                <div ref={listContainerRef} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto max-h-[60vh] custom-scrollbar p-1">
+                <div ref={listContainerRef} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto max-h-[60dvh] custom-scrollbar p-1">
                     {filteredListings.length > 0 ? (
                         filteredListings.map(listing => (
                             <ListingCard

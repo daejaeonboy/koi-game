@@ -51,8 +51,8 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
     };
 
     return (
-        <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[1300] p-4">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 w-full max-w-sm animate-fade-in-up relative max-h-[85vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[1300] p-4">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 w-full max-w-sm animate-fade-in-up relative max-h-[85dvh] overflow-y-auto custom-scrollbar">
                 <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-white">
                     <X size={24} />
                 </button>

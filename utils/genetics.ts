@@ -1,4 +1,4 @@
-import { KoiGenetics, GeneType, Spot, Koi, GrowthStage, SpotShape, DominanceType, Allele, GeneAlleles, SpotPhenotypeGenes, SpotPhenotype, GenerationalData } from '../types';
+import { KoiGenetics, GeneType, Spot, Koi, GrowthStage, SpotShape, DominanceType, Allele, GeneAlleles, SpotPhenotypeGenes, SpotPhenotype } from '../types';
 
 const ALL_SPOT_COLORS = [GeneType.RED, GeneType.ORANGE, GeneType.YELLOW, GeneType.WHITE, GeneType.BLACK];
 
@@ -378,28 +378,6 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
         childSpots.push(createNewRandomSpot(nextColor));
     }
 
-    // 5. Create generational data
-    let childGenerationalData: GenerationalData | undefined;
-    if (genetics1.spotPhenotypeGenes || genetics2.spotPhenotypeGenes) {
-        const parent1Phenotype = genetics1.spotPhenotypeGenes
-            ? calculateSpotPhenotype(genetics1.spotPhenotypeGenes)
-            : undefined;
-        const parent2Phenotype = genetics2.spotPhenotypeGenes
-            ? calculateSpotPhenotype(genetics2.spotPhenotypeGenes)
-            : undefined;
-
-        childGenerationalData = {
-            ancestorTraits: {
-                grandparent1: parent1Phenotype ? {
-                    colorSaturation: parent1Phenotype.colorSaturation,
-                } : undefined,
-                grandparent2: parent2Phenotype ? {
-                    colorSaturation: parent2Phenotype.colorSaturation,
-                } : undefined,
-            }
-        };
-    }
-
     // 6. Breed albino alleles (Recessive inheritance + Mutation)
     let childAlbinoAlleles: [boolean, boolean] | undefined;
     const parent1Alleles = genetics1.albinoAlleles || [false, false];
@@ -425,7 +403,6 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
             saturation: childSaturation,
             albinoAlleles: childAlbinoAlleles,
             spotPhenotypeGenes: childSpotPhenotypeGenes,
-            generationalData: childGenerationalData,
         },
         mutations
     };
@@ -559,29 +536,6 @@ const GENE_DOMINANCE_CONFIG: Record<keyof SpotPhenotypeGenes, DominanceType> = {
     CS: DominanceType.INCOMPLETE,
 };
 
-type SpotGeneId = keyof SpotPhenotypeGenes;
-interface LinkageGroup {
-    genes: [SpotGeneId, SpotGeneId];
-    linkageStrength: number;
-}
-
-const LINKAGE_GROUPS: LinkageGroup[] = [
-    // ES 유전자 제거로 비워둨
-];
-
-interface MutationConfig {
-    type: 'point' | 'deletion' | 'duplication' | 'inversion';
-    rate: number;
-    magnitude: number;
-}
-
-const MUTATION_CONFIGS: Record<keyof SpotPhenotypeGenes, MutationConfig> = {
-    CS: { type: 'point', rate: 0.03, magnitude: 0.15 },
-};
-
-const CROSSOVER_RATE = 0.15;
-const DRIFT_RATE = 0.005;
-
 const IMPRINTING_CONFIG: Record<keyof SpotPhenotypeGenes, { maternalBias: number; paternalBias: number }> = {
     CS: { maternalBias: 1.0, paternalBias: 1.0 },
 };
@@ -595,17 +549,10 @@ interface ThresholdTrait {
 
 const THRESHOLD_TRAITS: ThresholdTrait[] = [
     { id: 'golden_sheen', name: '황금빛 채도', requirements: { CS: 80 }, description: '황금빛으로 빛나는 강렬한 채도' },
-    { id: 'ghost_pattern', name: '흐린 무늬', requirements: { ES: 30, invertES: true } as any, description: '경계가 매우 부드러운 유령 같은 무늬' },
 ];
 
-interface GeneInteraction {
-    partner: keyof SpotPhenotypeGenes;
-    type: 'synergy' | 'antagonism' | 'neutral';
-    strength: number;
-}
-
-const GENE_INTERACTIONS: Record<keyof SpotPhenotypeGenes, GeneInteraction[]> = {
-    CS: [], // ES 유전자 제거로 상호작용 비워둠
+const GENE_INTERACTIONS: Record<keyof SpotPhenotypeGenes, { partner: keyof SpotPhenotypeGenes, type: 'synergy' | 'antagonism' | 'neutral', strength: number }[]> = {
+    CS: [],
 };
 
 const HIDDEN_ACTIVATION_THRESHOLD = 3;

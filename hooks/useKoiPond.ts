@@ -387,15 +387,12 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
     }, [activePondId]);
 
     const removeKoi = useCallback((koiId: string) => {
-        console.log(`[useKoiPond] Removing koi ${koiId} from pond ${activePondId}`);
         setPonds((prev: Ponds) => {
             const activePond = prev[activePondId];
             if (!activePond) {
-                console.warn(`[useKoiPond] Active pond ${activePondId} not found!`);
                 return prev;
             }
             const updatedKois = activePond.kois.filter(k => k.id !== koiId);
-            console.log(`[useKoiPond] Koi removed. Previous count: ${activePond.kois.length}, New count: ${updatedKois.length}`);
             return {
                 ...prev,
                 [activePondId]: {

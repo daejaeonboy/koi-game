@@ -113,7 +113,6 @@ export const createListingAtomic = async (
     price: number,
     currentGameState: SavedGameState
 ): Promise<void> => {
-    console.log('[Marketplace] START: createListingAtomic for koi:', koi.id);
 
     const now = Date.now();
     const expiresAt = now + 3 * 24 * 60 * 60 * 1000; // 3일
@@ -140,18 +139,14 @@ export const createListingAtomic = async (
 
     try {
         // 단계1: 매물 등록 (15초 타임아웃)
-        console.log('[Marketplace] Step 1: Adding listing document...');
         const docRef = await withTimeout(
             addDoc(getMarketplaceItemsCollection(), listingData),
             15000,
             '서버 응답이 느립니다. 장터를 확인해주세요.'
         );
-        console.log('[Marketplace] Step 1: Listing created with ID:', docRef.id);
 
         // 단계2는 handleListingCreated에서 처리 (로컬 상태 업데이트 + Shadow Koi Cleanup)
         // 서버 데이터 저장은 주기적 저장에서 처리됨
-
-        console.log('[Marketplace] SUCCESS: Listing created.');
     } catch (error: any) {
         console.error('[Marketplace] FAILED: createListingAtomic:', error);
         throw error;
@@ -166,7 +161,6 @@ export const createListing = async (
     startPrice: number,
     buyNowPrice?: number,
 ): Promise<string> => {
-    console.log('[Marketplace] START: createListing for koi:', koi.id);
     if (!sellerId) {
         console.error('[Marketplace] FAILED: sellerId is missing');
         throw new Error('로그인 정보가 없습니다. 다시 로그인 해주세요.');
@@ -192,21 +186,12 @@ export const createListing = async (
         status: 'active',
     };
 
-    console.log('[Marketplace] Listing Data prepared:', {
-        sellerId,
-        koiId: koi.id,
-        price: buyNowPrice
-    });
-
     try {
-        console.log('[Marketplace] Submitting to Firestore (30s timeout)...');
-        // 네트워크 지연으로 인해 서버엔 등록되지만 로컬에선 타임아웃이 뜰 수 있으므로 시간을 넉넉히 잡습니다.
         const docRef = await withTimeout(
             addDoc(getMarketplaceItemsCollection(), listingData),
             30000,
             '서버 응답이 늦어지고 있습니다. 잠시 후 장터를 확인해주세요.'
         );
-        console.log('[Marketplace] SUCCESS: Listing created ID:', docRef.id);
         return docRef.id;
     } catch (error: any) {
         console.error('[Marketplace] FAILED: createListing:', error);
@@ -239,7 +224,6 @@ export const placeBid = async (
 
 // 즉시 구매 (Cloud Function)
 export const buyNowListing = async (listingId: string) => {
-    console.log('[Marketplace] START: buyNowListing:', listingId);
     const callable = httpsCallable(functions, 'onBuyNow');
     try {
         const result = await withTimeout(
@@ -256,7 +240,6 @@ export const buyNowListing = async (listingId: string) => {
 
 // 판매 취소 (Cloud Function)
 export const cancelListing = async (listingId: string) => {
-    console.log('[Marketplace] START: cancelListing:', listingId);
     const callable = httpsCallable(functions, 'onCancelListing');
     try {
         const result = await withTimeout(
@@ -264,7 +247,6 @@ export const cancelListing = async (listingId: string) => {
             15000,
             '취소 요청 시간 초과'
         );
-        console.log('[Marketplace] SUCCESS: cancelListing result:', result.data);
         return result.data as any;
     } catch (error) {
         console.error('[Marketplace] FAILED: cancelListing:', error);

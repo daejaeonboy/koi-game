@@ -9,7 +9,6 @@ export const checkRedirectResult = async () => {
     try {
         const result = await getRedirectResult(auth);
         if (result) {
-            console.log("Redirect login successful:", result.user);
             return result.user;
         }
     } catch (error) {

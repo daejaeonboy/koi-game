@@ -77,13 +77,11 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
     const handleCancel = async () => {
         if (!isOwner) return;
 
-        console.log('[Marketplace] Attempting to cancel listing:', liveListing.id);
         setIsProcessing(true);
         setError(null);
         setNotice(null);
         try {
             await cancelListing(liveListing.id);
-            console.log('[Marketplace] Listing cancelled successfully');
             onCancelSuccess(liveListing.koiData);
             onClose();
         } catch (e: any) {

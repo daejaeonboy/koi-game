@@ -65,13 +65,6 @@ export interface SpotPhenotype {
   activeTraits?: string[];
 }
 
-export interface GenerationalData {
-  ancestorTraits?: {
-    grandparent1?: Partial<SpotPhenotype>;
-    grandparent2?: Partial<SpotPhenotype>;
-  };
-}
-
 export interface KoiGenetics {
   baseColorGenes: GeneType[]; // Changed to array for unlimited polygenic system
   spots: Spot[];
@@ -83,7 +76,6 @@ export interface KoiGenetics {
   albinoAlleles?: [boolean, boolean];
 
   spotPhenotypeGenes?: SpotPhenotypeGenes;
-  generationalData?: GenerationalData;
 }
 
 export interface Koi {

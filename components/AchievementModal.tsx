@@ -62,7 +62,7 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-4xl max-h-[85dvh] flex flex-col shadow-2xl">
+            <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-4xl max-h-[85svh] flex flex-col shadow-2xl">
                 {/* Header - Pond Menu Style */}
                 <div className="flex justify-between items-center p-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">

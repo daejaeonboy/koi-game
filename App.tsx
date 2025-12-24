@@ -1170,7 +1170,7 @@ export const App: React.FC = () => {
   }, [selectedKoisForBreeding]);
 
   return (
-    <div className="relative w-full h-[100dvh] bg-gray-900 overflow-hidden select-none font-sans flex flex-col">
+    <div className="relative w-full h-[100svh] bg-gray-900 overflow-hidden select-none font-sans flex flex-col">
       <main
         className="flex-grow relative overflow-hidden touch-none"
       >

@@ -298,7 +298,7 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-lg w-full max-w-4xl h-[80dvh] flex flex-col border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-gray-800 rounded-lg w-full max-w-4xl h-[80svh] flex flex-col border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
 
         {/* Header - Tabs System */}
         <div className="flex justify-between items-center p-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">

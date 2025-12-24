@@ -1268,7 +1268,7 @@ export const App: React.FC = () => {
         >
           {user && user.photoURL ? (
             <img
-              src={user.photoURL}
+              src={user.photoURL.replace(/^http:\/\//i, 'https://')}
               alt="Profile"
               className="w-full h-full object-cover"
             />

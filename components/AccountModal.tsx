@@ -102,7 +102,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     <div className="flex flex-col items-center gap-3">
                         <div className="relative">
                             {user?.photoURL ? (
-                                <img src={user.photoURL} alt="Profile" className="w-20 h-20 rounded-full border-2 border-cyan-400/30" />
+                                <img src={user.photoURL.replace(/^http:\/\//i, 'https://')} alt="Profile" className="w-20 h-20 rounded-full border-2 border-cyan-400/30" />
                             ) : (
                                 <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 border-2 border-gray-700">
                                     <User size={40} />

@@ -30,6 +30,7 @@ export interface UserGameData {
     theme: PondTheme;
     pondCapacity: number;
     honorPoints?: number;
+    achievementPoints?: number; // New: Achievement Score for Ranking
 }
 
 /** 장터용 잉어 미리보기 정보 */

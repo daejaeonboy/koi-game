@@ -41,6 +41,8 @@ import { MarketplaceListing } from './types';
 import { FORCE_CLEAR_KEY, SAVE_GAME_KEY, clearLocalGameSaves, suppressLocalGameSave } from './services/localSave';
 import { ensureUserProfileNickname, updateUserNickname } from './services/profile';
 import { RankingModal } from './components/RankingModal';
+import { useAchievements } from './hooks/useAchievements';
+import { AchievementModal } from './components/AchievementModal';
 
 interface Animation {
   id: number;
@@ -145,6 +147,53 @@ export const App: React.FC = () => {
   const [isConflictOpen, setIsConflictOpen] = useState(false);
   const [userNickname, setUserNickname] = useState<string>('');
   const [isCloudSyncReady, setIsCloudSyncReady] = useState(false);
+
+  // Achievement System
+  const {
+    achievements,
+    unlockedIds,
+    claimedIds,
+    checkAchievements,
+    claimReward,
+    hasUnclaimedRewards,
+    totalPoints: achievementScore
+  } = useAchievements(user?.uid);
+  const [isAchievementModalOpen, setIsAchievementModalOpen] = useState(false);
+
+  // Show achievement unlock notification
+  useEffect(() => {
+    if (user?.uid && koiList.length > 0) {
+      const newUnlocks = checkAchievements(koiList);
+      if (newUnlocks && newUnlocks.length > 0) {
+        // Show notification for the first unlocked achievement in this batch
+        setNotification({
+          message: `🏆 업적 달성: ${newUnlocks[0].title}`,
+          type: 'success'
+        });
+        audioManager.playSFX('click'); // Reuse existing SFX or add new one
+      }
+    }
+  }, [koiList, user?.uid, checkAchievements]);
+
+  const handleClaimReward = (id: string, reward: any) => {
+    claimReward(id, (rewardContent) => {
+      // Add items if present
+      if (rewardContent.items) {
+        rewardContent.items.forEach((item: any) => {
+          if (item.type === 'corn') setCornCount(prev => prev + item.count);
+          if (item.type === 'medicine') setMedicineCount(prev => prev + item.count);
+        });
+      }
+      const itemsText = rewardContent.items
+        ? rewardContent.items.map((i: any) => i.type === 'corn' ? `옥수수 ${i.count}개` : `${i.type} ${i.count}개`).join(', ')
+        : '';
+      setNotification({
+        message: `보상 획득! 업적 포인트 ${rewardContent.achievementPoints}점${itemsText ? `, ${itemsText}` : ''}`,
+        type: 'success'
+      });
+      audioManager.playSFX('coin');
+    });
+  };
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMarketplaceOperationPending = useRef(false);
   const feedingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -1316,6 +1365,11 @@ export const App: React.FC = () => {
           audioManager.playSFX('click');
           setIsRankingModalOpen(true);
         }}
+        onAchievementClick={() => {
+          audioManager.playSFX('click');
+          setIsAchievementModalOpen(true);
+        }}
+        hasUnclaimedAchievements={hasUnclaimedRewards}
       />
 
       {
@@ -1596,6 +1650,16 @@ export const App: React.FC = () => {
         myHonorPoints={honorPoints}
         isLoggedIn={!!user}
         currUserId={user?.uid}
+        myAchievementPoints={achievementScore}
+      />
+
+      <AchievementModal
+        isOpen={isAchievementModalOpen}
+        onClose={() => setIsAchievementModalOpen(false)}
+        achievements={achievements}
+        unlockedIds={unlockedIds}
+        claimedIds={claimedIds}
+        onClaim={handleClaimReward}
       />
     </div >
   );

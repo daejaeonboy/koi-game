@@ -116,6 +116,11 @@ export const calculateKoiValue = (koi: Koi): number => {
     // 2. Value from Phenotype Rarity (Multiplier reduced 50 -> 15)
     value += (GENE_RARITY[phenotype] || 1) * 15;
 
+    // 2.5 Bonus for Non-Cream Body Color (User Request)
+    if (phenotype !== GeneType.CREAM) {
+        value += 50;
+    }
+
     // 3. Value from Hidden Genes (Carriers) (Reduced multiplier)
     genetics.baseColorGenes.forEach(gene => {
         if (gene !== GeneType.CREAM) {
@@ -124,9 +129,9 @@ export const calculateKoiValue = (koi: Koi): number => {
     });
 
     // 4. Value from Lightness (More linear, less explosive)
-    // pow(diff, 1.5) * 1.0 (Max at 50 diff is ~350)
+    // pow(diff, 1.5) * 2.0 (Boosted per user request)
     const lightnessDifference = Math.abs(genetics.lightness - 50);
-    value += Math.pow(lightnessDifference, 1.5) * 1.0;
+    value += Math.pow(lightnessDifference, 1.5) * 2.0;
 
     // 5. Value from Body Saturation (Extremes are better)
     // abs(sat - 50) * 2 (Max at 50 diff is 100)
@@ -148,13 +153,16 @@ export const calculateKoiValue = (koi: Koi): number => {
     // 7. Value from Spot Phenotype (Saturation Extremes)
     const spotPheno = calculateSpotPhenotype(genetics.spotPhenotypeGenes, koi);
     const spotSatDiff = Math.abs(spotPheno.colorSaturation - 50);
-    value += spotSatDiff * 3; // 채도만 반영 (이전: 채도 + 선명도)
+    value += spotSatDiff * 6; // 채도만 반영 (이전: *3 -> *6 User Request)
 
+    // 8. Multiplier for growth stage (Halved AGAIN per user request)
     // 8. Multiplier for growth stage
     if (growthStage === GrowthStage.ADULT) {
-        value *= 2;
+        value *= 1.0;
     } else if (growthStage === GrowthStage.JUVENILE) {
-        value *= 1.5;
+        value *= 0.4; // User Request: 0.4
+    } else {
+        value *= 0.2; // User Request: 0.2
     }
 
     // 9. Stamina/Health Penalties
@@ -297,18 +305,25 @@ export const breedKoi = (genetics1: KoiGenetics, genetics2: KoiGenetics): { gene
 
     const n = baseCount;
 
-    // User Request:
-    // 1. Add probability reduced ~10x (Target ~5% at base)
-    // 2. Step-wise difficulty increase at 4, 8, 12, 16... (4의 배수)
-    // 3. Keep probability increased
+    // User Request (Final):
+    // 1. Decrease chance ~30% (deleteWeight = 0.5)
+    // 2. Increase chance halves every tier starting from 4 spots (Tier 1)
 
+    // Tier calculation: n / 4
+    // 0-3 (T0) -> Base Chance
+    // 4-7 (T1) -> 50% chance
+    // 8-11 (T2) -> 25% chance
     const tier = Math.floor(n / 4);
 
-    // 추가 확률: 기본 15% (이전 5%의 3배), 4개마다 절반으로 감소
-    const addWeight = 0.15 * Math.pow(0.5, tier);
+    // 추가 확률: 기본 15%, 1티어(4개)부터 절반으로 감소 시작
+    // tier 0 -> 1.0
+    // tier 1 -> 0.5^1 = 0.5
+    // tier 2 -> 0.5^2 = 0.25
+    const difficultyMultiplier = tier < 1 ? 1.0 : Math.pow(0.5, tier);
+    const addWeight = 0.15 * difficultyMultiplier;
 
-    // 삭제 확률: 약 20%로 고정
-    const deleteWeight = 0.25;
+    // 삭제 확률: 30% 목표 (상대적 가중치 설정)
+    const deleteWeight = 0.5;
 
     // 유지 확률: 기본값
     const keepWeight = 1.0;

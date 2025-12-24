@@ -102,6 +102,33 @@ export enum DecorationType {
   DUCKWEED = '개구리밥',
 }
 
+// ============================================
+// Achievement System
+// ============================================
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string; // Lucide icon name or emoji
+  tier: 'novice' | 'intermediate' | 'advanced' | 'master' | 'legend';
+  displayColor?: string; // Hex color for the badge icon
+  condition: (koi: any) => boolean; // Using any to avoid circular dependency issues if Koi is not fully defined here, but ideally Koi
+  reward: {
+    achievementPoints: number;
+    items?: { type: 'corn' | 'medicine', count: number }[];
+  };
+  category: 'spots' | 'color' | 'mutation' | 'collection';
+  isHidden?: boolean; // If true, details are hidden until unlocked
+}
+
+export interface AchievementState {
+  unlockedIds: string[];
+  claimedIds: string[];
+  totalPoints: number;
+  lastChecked: number;
+}
+
 export interface Decoration {
   id: string;
   type: DecorationType;

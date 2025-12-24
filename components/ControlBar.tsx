@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Store, Fish, Pill, Palette, Globe, Trophy, Menu } from 'lucide-react';
+import { Store, Fish, Pill, Palette, Globe, Trophy, Menu, Medal } from 'lucide-react';
 
 interface IconProps {
   size?: number;
@@ -56,6 +56,8 @@ interface ControlBarProps {
   onThemeClick: () => void;
   onMarketplaceClick: () => void;
   onRankingClick: () => void;
+  onAchievementClick: () => void;
+  hasUnclaimedAchievements: boolean;
 }
 
 // Updated getButtonClass: Removed scale, shadow-lg, and glow effects
@@ -78,6 +80,8 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onThemeClick,
   onMarketplaceClick,
   onRankingClick,
+  onAchievementClick,
+  hasUnclaimedAchievements,
 }) => {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
 
@@ -108,26 +112,39 @@ export const ControlBar: React.FC<ControlBarProps> = ({
 
   return (
     <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
-      {/* Main Menu System (Now on the Left) */}
+      {/* Main Menu Popup (Centered on Screen) */}
+      {isMainMenuOpen && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 flex flex-row gap-2 bg-black/60 p-2 rounded-2xl border border-gray-700 backdrop-blur-md whitespace-nowrap">
+          <button onClick={() => handleSubMenuClick(onShopClick)} className={getButtonClass(false)} aria-label="Shop">
+            <Store size={24} />
+          </button>
+          <button onClick={() => handleSubMenuClick(onRankingClick)} className={getButtonClass(false)} aria-label="Ranking">
+            <Trophy size={24} />
+          </button>
+          <button onClick={() => handleSubMenuClick(onAchievementClick)} className={getButtonClass(false)} aria-label="Achievements">
+            <div className="relative">
+              <Medal size={24} />
+              {hasUnclaimedAchievements && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-gray-900 animate-pulse" />
+              )}
+            </div>
+          </button>
+          <button onClick={() => handleSubMenuClick(onMarketplaceClick)} className={getButtonClass(false)} aria-label="Marketplace">
+            <Globe size={24} />
+          </button>
+          <button onClick={() => handleSubMenuClick(onThemeClick)} className={getButtonClass(false)} aria-label="Themes">
+            <Palette size={24} />
+          </button>
+        </div>
+      )}
+
+      {/* Main Menu Button (Left) */}
       <div className="relative">
-        {isMainMenuOpen && (
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 flex flex-row gap-2 bg-black/60 p-2 rounded-2xl border border-gray-700 backdrop-blur-md whitespace-nowrap">
-            <button onClick={() => handleSubMenuClick(onShopClick)} className={getButtonClass(false)} aria-label="Shop">
-              <Store size={24} />
-            </button>
-            <button onClick={() => handleSubMenuClick(onRankingClick)} className={getButtonClass(false)} aria-label="Ranking">
-              <Trophy size={24} />
-            </button>
-            <button onClick={() => handleSubMenuClick(onMarketplaceClick)} className={getButtonClass(false)} aria-label="Marketplace">
-              <Globe size={24} />
-            </button>
-            <button onClick={() => handleSubMenuClick(onThemeClick)} className={getButtonClass(false)} aria-label="Themes">
-              <Palette size={24} />
-            </button>
-          </div>
-        )}
         <button onClick={handleMainMenuToggle} className={getButtonClass(isMainMenuOpen)} aria-label="Menu">
           <Menu size={24} className="sm:w-[26px] sm:h-[26px]" strokeWidth={2} />
+          {hasUnclaimedAchievements && !isMainMenuOpen && (
+            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+          )}
         </button>
       </div>
       {/* Inventory System (Middle) */}

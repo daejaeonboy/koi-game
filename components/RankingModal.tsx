@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Trophy, Medal, RotateCw, AlertCircle } from 'lucide-react';
-import { getTopRankings } from '../services/firestore';
+import { X, Trophy, Medal, RotateCw, AlertCircle, Award } from 'lucide-react';
+import { getRankings } from '../services/firestore';
 import { FirestoreUserDocument } from '../types/online';
 
 interface RankingModalProps {
@@ -10,9 +10,13 @@ interface RankingModalProps {
     myHonorPoints: number;
     isLoggedIn: boolean;
     currUserId?: string;
+    myAchievementPoints?: number; // New Prop for current user
 }
 
-export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, userNickname, myHonorPoints, isLoggedIn, currUserId }) => {
+type RankingTab = 'trophy' | 'achievement';
+
+export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, userNickname, myHonorPoints, isLoggedIn, currUserId, myAchievementPoints = 0 }) => {
+    const [activeTab, setActiveTab] = useState<RankingTab>('trophy');
     const [rankings, setRankings] = useState<FirestoreUserDocument[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -22,7 +26,8 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
         setIsLoading(true);
         setError(null);
         try {
-            const data = await getTopRankings(20);
+            const sortBy = activeTab === 'trophy' ? 'honorPoints' : 'achievementPoints';
+            const data = await getRankings(sortBy, 20);
             setRankings(data);
             setLastUpdated(new Date());
         } catch (err: any) {
@@ -37,7 +42,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
         if (isOpen) {
             fetchRankings();
         }
-    }, [isOpen]);
+    }, [isOpen, activeTab]);
 
     if (!isOpen) return null;
 
@@ -48,38 +53,65 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
-                    <div className="flex flex-col">
-                        <h2 className="text-xl font-bold text-yellow-400 flex items-center gap-2 leading-none">
-                            <Trophy size={22} className="text-yellow-400" />
-                            명예의 전당
-                        </h2>
-                        {lastUpdated && (
-                            <span className="text-[10px] text-gray-500 mt-1">
-                                마지막 업데이트: {lastUpdated.toLocaleTimeString()}
-                            </span>
-                        )}
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex flex-col gap-3 shrink-0">
+                    <div className="flex justify-between items-center">
+                        <div className="flex flex-col">
+                            <h2 className="text-xl font-bold text-yellow-400 flex items-center gap-2 leading-none">
+                                <Trophy size={22} className="text-yellow-400" />
+                                명예의 전당
+                            </h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={fetchRankings}
+                                disabled={isLoading}
+                                className="p-1.5 hover:bg-gray-700 rounded-full text-gray-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
+                                title="새로고침"
+                            >
+                                <RotateCw size={20} className={isLoading ? 'animate-spin' : ''} />
+                            </button>
+                            <button onClick={onClose} className="p-1 hover:bg-gray-700 rounded-full text-gray-400 hover:text-white transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    {/* Tabs */}
+                    <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
                         <button
-                            onClick={fetchRankings}
-                            disabled={isLoading}
-                            className="p-1.5 hover:bg-gray-700 rounded-full text-gray-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
-                            title="새로고침"
+                            onClick={() => setActiveTab('trophy')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1.5 transition-all ${activeTab === 'trophy'
+                                ? 'bg-yellow-500 text-black shadow'
+                                : 'text-gray-400 hover:text-gray-200'
+                                }`}
                         >
-                            <RotateCw size={20} className={isLoading ? 'animate-spin' : ''} />
+                            <Trophy size={14} />
+                            트로피 랭킹
                         </button>
-                        <button onClick={onClose} className="p-1 hover:bg-gray-700 rounded-full text-gray-400 hover:text-white transition-colors">
-                            <X size={24} />
+                        <button
+                            onClick={() => setActiveTab('achievement')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1.5 transition-all ${activeTab === 'achievement'
+                                ? 'bg-purple-500 text-white shadow'
+                                : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                        >
+                            <Award size={14} />
+                            업적 랭킹
                         </button>
                     </div>
+
+                    {lastUpdated && (
+                        <span className="text-[10px] text-gray-500 text-right">
+                            {lastUpdated.toLocaleTimeString()} 기준
+                        </span>
+                    )}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <div className="w-10 h-10 border-4 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin"></div>
+                            <div className={`w-10 h-10 border-4 rounded-full animate-spin ${activeTab === 'trophy' ? 'border-yellow-400/20 border-t-yellow-400' : 'border-purple-400/20 border-t-purple-400'}`}></div>
                             <p className="text-gray-400 font-medium text-sm">순위를 불러오는 중...</p>
                         </div>
                     ) : error ? (
@@ -102,19 +134,23 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
                         </div>
                     ) : rankings.length === 0 ? (
                         <div className="text-center py-20 text-gray-500 text-sm">
-                            아직 트로피를 보유한<br />명예로운 플레이어가 없습니다.
+                            아직 기록이 없습니다.
                         </div>
                     ) : (
                         <div className="space-y-2">
                             {rankings.map((user, index) => {
                                 const rank = index + 1;
                                 const isCurrentUser = currUserId && user.uid === currUserId;
+                                const displayValue = activeTab === 'trophy'
+                                    ? (user.gameData.honorPoints || 0)
+                                    : (user.gameData.achievementPoints || 0);
 
                                 return (
                                     <div
                                         key={index}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isCurrentUser ? 'ring-2 ring-yellow-400 bg-yellow-400/20' :
-                                            rank === 1 ? 'bg-yellow-400/10 border-yellow-400/30' :
+                                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isCurrentUser
+                                            ? activeTab === 'trophy' ? 'ring-2 ring-yellow-400 bg-yellow-400/20' : 'ring-2 ring-purple-400 bg-purple-400/20'
+                                            : rank === 1 ? 'bg-yellow-400/10 border-yellow-400/30' :
                                                 rank === 2 ? 'bg-gray-300/10 border-gray-300/30' :
                                                     rank === 3 ? 'bg-orange-400/10 border-orange-400/30' :
                                                         'bg-gray-700/30 border-gray-700/50'
@@ -130,14 +166,18 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
                                         <div className="flex-1 min-w-0">
                                             <div className={`text-sm font-bold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>
                                                 {user.profile.nickname}
-                                                {isCurrentUser && <span className="ml-2 text-[10px] bg-yellow-600 px-1.5 py-0.5 rounded uppercase">Me</span>}
+                                                {isCurrentUser && <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded uppercase ${activeTab === 'trophy' ? 'bg-yellow-600' : 'bg-purple-600'}`}>Me</span>}
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-1.5 shrink-0">
-                                            <Trophy size={14} className="text-yellow-400" />
-                                            <span className="text-base font-black text-yellow-500">
-                                                {(user.gameData.honorPoints || 0).toLocaleString()}
+                                            {activeTab === 'trophy' ? (
+                                                <Trophy size={14} className="text-yellow-400" />
+                                            ) : (
+                                                <Award size={14} className="text-purple-400" />
+                                            )}
+                                            <span className={`text-base font-black ${activeTab === 'trophy' ? 'text-yellow-500' : 'text-purple-400'}`}>
+                                                {displayValue.toLocaleString()}
                                             </span>
                                         </div>
                                     </div>
@@ -160,9 +200,18 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
                                 <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">나의 기록</span>
                                 <span className="text-sm font-bold text-white truncate max-w-[120px]">{userNickname}</span>
                             </div>
-                            <div className="flex items-center gap-2 bg-yellow-400/10 px-3 py-1.5 rounded-xl border border-yellow-400/20">
-                                <Trophy size={16} className="text-yellow-400" />
-                                <span className="text-lg font-black text-yellow-500">{myHonorPoints.toLocaleString()}</span>
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${activeTab === 'trophy' ? 'bg-yellow-400/10 border-yellow-400/20' : 'bg-purple-400/10 border-purple-400/20'}`}>
+                                {activeTab === 'trophy' ? (
+                                    <>
+                                        <Trophy size={16} className="text-yellow-400" />
+                                        <span className="text-lg font-black text-yellow-500">{myHonorPoints.toLocaleString()}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Award size={16} className="text-purple-400" />
+                                        <span className="text-lg font-black text-purple-400">{(myAchievementPoints || 0).toLocaleString()}</span>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
@@ -170,7 +219,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
 
                 {/* Footer */}
                 <div className="p-3 bg-gray-900/50 border-t border-gray-800 text-center text-[9px] text-gray-600 leading-tight">
-                    명예 트로피 랭킹은 20위까지만 표시됩니다.
+                    랭킹은 20위까지만 표시됩니다.
                 </div>
             </div>
         </div>

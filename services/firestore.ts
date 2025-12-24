@@ -167,14 +167,18 @@ export async function updateLastLogin(userId: string): Promise<void> {
 }
 
 /**
- * 랭킹 목록 가져오기 (명예 트로피 기준)
+ * 랭킹 목록 가져오기 (정렬 기준 선택 가능)
  */
-export async function getTopRankings(limitCount: number = 20): Promise<FirestoreUserDocument[]> {
+export async function getRankings(
+    sortBy: 'honorPoints' | 'achievementPoints' = 'honorPoints',
+    limitCount: number = 20
+): Promise<FirestoreUserDocument[]> {
     try {
         const usersRef = collection(db, 'users');
+        const fieldPath = `gameData.${sortBy}`;
         const q = query(
             usersRef,
-            orderBy('gameData.honorPoints', 'desc'),
+            orderBy(fieldPath, 'desc'),
             limit(limitCount)
         );
         const querySnap = await getDocs(q);
@@ -190,6 +194,14 @@ export async function getTopRankings(limitCount: number = 20): Promise<Firestore
         console.error('Error getting rankings:', error);
         throw error;
     }
+}
+
+/**
+ * @deprecated Use getRankings instead
+ * 랭킹 목록 가져오기 (명예 트로피 기준)
+ */
+export async function getTopRankings(limitCount: number = 20): Promise<FirestoreUserDocument[]> {
+    return getRankings('honorPoints', limitCount);
 }
 
 /**

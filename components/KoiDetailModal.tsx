@@ -152,7 +152,6 @@ export const KoiDetailModal: React.FC<KoiDetailModalProps> = ({ koi, onClose, on
                                 <div className="flex flex-1 justify-around">
                                     <span>점: <span className="text-cyan-300">{koi.genetics.spots.length}개</span></span>
                                     <span>채도: <span className="text-gray-300">{(displayPhenotype.colorSaturation * 100).toFixed(0)}</span></span>
-                                    <span>선명도: <span className="text-gray-300">{(displayPhenotype.sharpness * 100).toFixed(0)}</span></span>
                                 </div>
                             </div>
                         </div>

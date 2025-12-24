@@ -355,7 +355,7 @@ export const useKoiPond = (initialState?: UseKoiPondInitialState) => {
                     spots: initialSpots,
                     lightness: 50, // User Request: Force 50 (Standard)
                     saturation: 50, // User Request: Force 50 (Standard)
-                    spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50), // Standard Sharpness/Saturation
+                    spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50), // Standard Saturation
                 },
                 position: { x: 50, y: 50 }, // Center spawn
                 velocity: { vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2 },

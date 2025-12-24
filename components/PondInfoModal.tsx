@@ -182,7 +182,6 @@ const KoiListItem: React.FC<{
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="font-bold text-gray-500">[점]</span>
             <span>채도: <span className="text-gray-300">{(displayPhenotype.colorSaturation * 100).toFixed(0)}</span></span>
-            <span>선명도: <span className="text-gray-300">{(displayPhenotype.sharpness * 100).toFixed(0)}</span></span>
           </div>
         </div>
         <div className="mt-1 text-xs text-gray-500 flex gap-2">
@@ -218,7 +217,7 @@ interface PondInfoModalProps {
   onToggleFavorite: (koiId: string) => void;
 }
 
-type SortOption = 'default' | 'spots_desc' | 'body_lightness_desc' | 'body_saturation_desc' | 'spot_saturation_desc' | 'spot_clarity_desc';
+type SortOption = 'default' | 'spots_desc' | 'body_lightness_desc' | 'body_saturation_desc' | 'spot_saturation_desc';
 
 export const PondInfoModal: React.FC<PondInfoModalProps> = ({
   onClose,
@@ -260,12 +259,6 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
           const phenoA = calculateSpotPhenotype(a.genetics.spotPhenotypeGenes, a);
           const phenoB = calculateSpotPhenotype(b.genetics.spotPhenotypeGenes, b);
           return phenoB.colorSaturation - phenoA.colorSaturation;
-        });
-      case 'spot_clarity_desc':
-        return sorted.sort((a, b) => {
-          const phenoA = calculateSpotPhenotype(a.genetics.spotPhenotypeGenes, a);
-          const phenoB = calculateSpotPhenotype(b.genetics.spotPhenotypeGenes, b);
-          return phenoB.sharpness - phenoA.sharpness;
         });
       default:
         return sorted;
@@ -391,9 +384,6 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
             </button>
             <button onClick={() => handleSort('spot_saturation_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'spot_saturation_desc' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
               점 채도 순
-            </button>
-            <button onClick={() => handleSort('spot_clarity_desc')} className={`px-3 py-1 rounded text-sm font-bold transition-colors whitespace-nowrap ${sortOption === 'spot_clarity_desc' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
-              점 선명도 순
             </button>
           </div>
 

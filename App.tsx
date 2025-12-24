@@ -844,7 +844,7 @@ export const App: React.FC = () => {
       spots: [],
       lightness: 50, // User Request: Force 50 (Standard)
       saturation: 50, // User Request: Force 50 (Standard)
-      spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50), // Standard Sharpness/Saturation
+      spotPhenotypeGenes: createFixedSpotPhenotypeGenes(50), // Standard Saturation
     };
 
     const newKoi: Koi = {

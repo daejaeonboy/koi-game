@@ -37,10 +37,7 @@ export const KoiCSSPreview: React.FC<KoiCSSPreviewProps> = ({ koi, className = "
                                 transform: 'translate(-50%, -50%)',
                                 backgroundColor: GENE_COLOR_MAP[spot.color],
                                 opacity: 1.0,
-                                filter: `
-                                    ${spotPhenotype.sharpness < 0.95 ? `blur(${(1.0 - spotPhenotype.sharpness) * 4}px)` : ''}
-                                    saturate(${(0.2 + spotPhenotype.colorSaturation * 1.8) * 100}%)
-                                `
+                                filter: `saturate(${(0.2 + spotPhenotype.colorSaturation * 1.8) * 100}%)`
                             }}
                         />
                     );

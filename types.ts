@@ -54,16 +54,14 @@ export interface GeneAlleles {
   dominanceType: DominanceType;
 }
 
-// 2개 유전자 시스템 (간소화)
+// 1개 유전자 시스템 (간소화)
 export interface SpotPhenotypeGenes {
   CS: GeneAlleles;  // Color Saturation - 색상 채도
-  ES: GeneAlleles;  // Edge Sharpness - 가장자리 선명도
 }
 
 // 표현형 (발현된 값)
 export interface SpotPhenotype {
   colorSaturation: number;  // 0.0 ~ 1.0
-  sharpness: number;        // 0.0 ~ 1.0 (1.0 is sharpest)
   activeTraits?: string[];
 }
 

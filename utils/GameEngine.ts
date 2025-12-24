@@ -1,6 +1,6 @@
 import { Koi, PondTheme, Decoration, DecorationType, SpotPhenotype, GrowthStage } from '../types';
 import { KoiRenderer } from './koiRenderer';
-import { GENE_COLOR_MAP, getPhenotype, getDisplayColor, getSpineColor, calculateSpotPhenotype } from './genetics';
+import { GENE_COLOR_MAP, getPhenotype, getDisplayColor, getSpineColor, calculateSpotPhenotype, getSpotColorWithSaturation } from './genetics';
 import { WaterEffects } from './WaterEffects';
 
 interface GameEntity {
@@ -273,12 +273,16 @@ export class GameEngine {
                     const desaturatedS = Math.max(0, parseFloat(s) * 0.4);
                     return `hsla(${h}, ${desaturatedS}%, ${l}%, 0.5)`;
                 });
-                const spots = koiData.genetics.spots.map(spot => ({
-                    ...spot,
-                    color: GENE_COLOR_MAP[spot.color]
-                }));
 
+                // phenotype 먼저 계산 (채도 반영에 필요)
                 const phenotype = koiData.genetics.spotPhenotypeGenes ? calculateSpotPhenotype(koiData.genetics.spotPhenotypeGenes, koiData) : undefined;
+                const colorSaturation = phenotype?.colorSaturation ?? 0.5;
+
+                // spots 색상에 채도와 명도 변형 반영 (ctx.filter 대신 색상 자체에 적용)
+                const spots = koiData.genetics.spots.map((spot, idx) => ({
+                    ...spot,
+                    color: getSpotColorWithSaturation(GENE_COLOR_MAP[spot.color], colorSaturation, idx)
+                }));
 
                 this.kois.set(koiData.id, {
                     id: koiData.id,
@@ -319,9 +323,15 @@ export class GameEngine {
                         const desaturatedS = Math.max(0, parseFloat(s) * 0.4);
                         return `hsla(${h}, ${desaturatedS}%, ${l}%, 0.5)`;
                     });
-                    const spots = koiData.genetics.spots.map(spot => ({
+
+                    // phenotype 먼저 계산 (채도 반영에 필요)
+                    entity.phenotype = koiData.genetics.spotPhenotypeGenes ? calculateSpotPhenotype(koiData.genetics.spotPhenotypeGenes, koiData) : undefined;
+                    const colorSaturation = entity.phenotype?.colorSaturation ?? 0.5;
+
+                    // spots 색상에 채도와 명도 변형 반영 (ctx.filter 대신 색상 자체에 적용)
+                    const spots = koiData.genetics.spots.map((spot, idx) => ({
                         ...spot,
-                        color: GENE_COLOR_MAP[spot.color]
+                        color: getSpotColorWithSaturation(GENE_COLOR_MAP[spot.color], colorSaturation, idx)
                     }));
 
                     entity.cachedColors = {
@@ -331,7 +341,6 @@ export class GameEngine {
                         spots: spots
                     };
 
-                    entity.phenotype = koiData.genetics.spotPhenotypeGenes ? calculateSpotPhenotype(koiData.genetics.spotPhenotypeGenes, koiData) : undefined;
                     entity.geneticsHash = geneticsHash;
                 }
 

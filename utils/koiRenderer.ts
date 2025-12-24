@@ -219,7 +219,7 @@ export class KoiRenderer {
 
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-        ctx.filter = 'blur(3px)';
+        // ctx.filter = 'blur(3px)'; // 성능 최적화: 필터 제거
         ctx.beginPath();
 
         const shadowScale = 0.8;
@@ -362,9 +362,7 @@ export class KoiRenderer {
             }
             ctx.clip();
 
-            // Phenotype modifiers
-            const sharpness = phenotype ? phenotype.sharpness : 1.0;
-            const blur = 1.0 - sharpness;
+            // 성능 최적화: ctx.filter 제거됨, 채도는 색상 생성 시 적용됨
 
             spots.forEach(spot => {
                 const segmentIndex = Math.floor((spot.y / 100) * this.segmentCount);
@@ -381,18 +379,8 @@ export class KoiRenderer {
                     // Spot inherent size
                     const spotRadius = (spot.size / 100) * radius;
 
-                    ctx.save();
+                    // save/restore 제거로 성능 향상 (필터는 위에서 한 번만 설정)
                     ctx.fillStyle = spot.color;
-                    ctx.globalAlpha = 1.0;
-
-                    const saturation = phenotype ? (0.2 + phenotype.colorSaturation * 1.8) : 1.0;
-                    let filters: string[] = [];
-                    if (blur > 0.1) filters.push(`blur(${blur * 2.5 * this.scale}px)`);
-                    if (Math.abs(saturation - 1.0) > 0.01) filters.push(`saturate(${saturation * 100}%)`);
-
-                    if (filters.length > 0) {
-                        ctx.filter = filters.join(' ');
-                    }
 
                     ctx.beginPath();
 
@@ -546,7 +534,7 @@ export class KoiRenderer {
                     }
 
                     ctx.fill();
-                    ctx.restore();
+                    // ctx.restore(); // 제거: save/restore는 spots 전체에서 한 번만
                 }
             });
             ctx.restore();

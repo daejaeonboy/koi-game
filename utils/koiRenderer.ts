@@ -218,15 +218,16 @@ export class KoiRenderer {
         if (!this.initialized) return;
 
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // Reduced opacity (0.15)
-        ctx.filter = 'blur(3px)'; // Re-enabled per user request
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.filter = 'blur(3px)';
         ctx.beginPath();
 
         const shadowScale = 0.8;
         const head = this.segments[0];
 
-        for (let i = this.segmentCount - 1; i >= 0; i--) {
-            const r = this.getRadius(i) * shadowScale;
+        // 렌더링 스킵: 2개씩 건너뛰며 그리기 (물리는 52개 유지, 렌더링만 절반)
+        for (let i = this.segmentCount - 1; i >= 0; i -= 2) {
+            const r = this.getRadius(i) * shadowScale * 1.1; // 스킵으로 인한 빈틈 보완
 
             const dx = this.segments[i].x - head.x;
             const dy = this.segments[i].y - head.y;
@@ -321,21 +322,21 @@ export class KoiRenderer {
         this.drawFin(ctx, this.segments[26], 'left', 0.3, 6, transform, finColor, time, 0.5);
         this.drawFin(ctx, this.segments[26], 'right', 0.3, 6, transform, finColor, time, 0.5);
 
-        // 1. Body Outline (Layer 1)
+        // 1. Body Outline (Layer 1) - 렌더링 스킵: 2개씩 건너뛰기
         ctx.fillStyle = colors.outline;
-        for (let i = this.segmentCount - 1; i >= 0; i--) {
-            const r = this.getRadius(i);
+        for (let i = this.segmentCount - 1; i >= 0; i -= 2) {
+            const r = this.getRadius(i) * 1.1; // 스킵으로 인한 빈틈 보완
             const p = transform(this.segments[i].x, this.segments[i].y);
             ctx.beginPath();
             ctx.arc(p.x, p.y, r + 2, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // 2. Body (Layer 2)
+        // 2. Body (Layer 2) - 렌더링 스킵: 2개씩 건너뛰기
         ctx.save();
         ctx.beginPath();
-        for (let i = this.segmentCount - 1; i >= 0; i--) {
-            const r = this.getRadius(i);
+        for (let i = this.segmentCount - 1; i >= 0; i -= 2) {
+            const r = this.getRadius(i) * 1.1; // 스킵으로 인한 빈틈 보완
             const p = transform(this.segments[i].x, this.segments[i].y);
             ctx.moveTo(p.x + r, p.y);
             ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
@@ -579,9 +580,8 @@ export class KoiRenderer {
     }
 
     private drawFin(ctx: CanvasRenderingContext2D, s: Segment, type: 'left' | 'right', sizeScale: number, yOffset: number, toLocal: (x: number, y: number) => { x: number, y: number }, color: string, time: number, baseAngleOffset: number = 0.2) {
-        // Animation
-        const sway = Math.sin(time / 200) * 0.15; // Slow sway
-        const angleOffset = type === 'left' ? (-baseAngleOffset - sway) : (baseAngleOffset + sway);
+        // 애니메이션 제거 - 고정 각도 (성능 최적화)
+        const angleOffset = type === 'left' ? (-baseAngleOffset) : (baseAngleOffset);
         const angle = s.angle + angleOffset;
         const sideScale = type === 'left' ? 1 : -1;
         const bodyRadius = this.getRadius(this.segments.indexOf(s));

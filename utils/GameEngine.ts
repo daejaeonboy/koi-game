@@ -21,6 +21,7 @@ interface KoiEntity extends GameEntity {
         spots: Array<{ x: number, y: number, size: number, color: string, shape?: any }>;
     };
     phenotype?: SpotPhenotype;
+    geneticsHash?: string; // 유전자 변경 감지용 해시
 }
 
 interface FoodEntity extends GameEntity {
@@ -51,6 +52,12 @@ export class GameEngine {
     // Turn speed was 0.03 rad/frame @ 60fps => 1.8 rad/sec. Let's make it 2.0 rad/sec.
     private readonly TURN_SPEED = 2.0;
     private readonly MARGIN = 50;
+
+    // FPS Counter
+    private frameCount = 0;
+    private fpsLastTime = 0;
+    private currentFPS = 0;
+    private showFPS = true; // 개발자 패널용 FPS 표시
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -298,30 +305,35 @@ export class GameEngine {
                 // Update existing data
                 const entity = this.kois.get(koiData.id)!;
 
-                // Only re-calculate if genetics changed (Optimization can be tighter, but this is safe)
-                const baseColorPhenotype = getPhenotype(koiData.genetics.baseColorGenes);
-                // Albino expression: Both alleles must be true (recessive)
-                const albinoAlleles = koiData.genetics.albinoAlleles || [false, false];
-                const isAlbino = albinoAlleles[0] && albinoAlleles[1];
-                const bodyColor = getDisplayColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
-                const spineColor = getSpineColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
-                const finColor = bodyColor.replace(/hsla\((\d+),\s*([.\d]+)%,\s*([.\d]+)%,\s*1\)/, (match, h, s, l) => {
-                    const desaturatedS = Math.max(0, parseFloat(s) * 0.4);
-                    return `hsla(${h}, ${desaturatedS}%, ${l}%, 0.5)`;
-                });
-                const spots = koiData.genetics.spots.map(spot => ({
-                    ...spot,
-                    color: GENE_COLOR_MAP[spot.color]
-                }));
+                // 유전자 해시 비교 - 변경 시에만 색상 재계산 (성능 최적화)
+                const geneticsHash = `${koiData.genetics.baseColorGenes.join('')}-${koiData.genetics.lightness}-${koiData.genetics.saturation}-${koiData.genetics.albinoAlleles?.join('')}-${koiData.genetics.spots.length}`;
 
-                entity.cachedColors = {
-                    body: bodyColor,
-                    spine: spineColor || '#000000',
-                    fin: finColor,
-                    spots: spots
-                };
+                if (entity.geneticsHash !== geneticsHash) {
+                    // 유전자가 변경되었을 때만 색상 재계산
+                    const baseColorPhenotype = getPhenotype(koiData.genetics.baseColorGenes);
+                    const albinoAlleles = koiData.genetics.albinoAlleles || [false, false];
+                    const isAlbino = albinoAlleles[0] && albinoAlleles[1];
+                    const bodyColor = getDisplayColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
+                    const spineColor = getSpineColor(baseColorPhenotype, koiData.genetics.lightness ?? 50, koiData.genetics.saturation ?? 50, isAlbino);
+                    const finColor = bodyColor.replace(/hsla\((\d+),\s*([.\d]+)%,\s*([.\d]+)%,\s*1\)/, (match, h, s, l) => {
+                        const desaturatedS = Math.max(0, parseFloat(s) * 0.4);
+                        return `hsla(${h}, ${desaturatedS}%, ${l}%, 0.5)`;
+                    });
+                    const spots = koiData.genetics.spots.map(spot => ({
+                        ...spot,
+                        color: GENE_COLOR_MAP[spot.color]
+                    }));
 
-                entity.phenotype = koiData.genetics.spotPhenotypeGenes ? calculateSpotPhenotype(koiData.genetics.spotPhenotypeGenes, koiData) : undefined;
+                    entity.cachedColors = {
+                        body: bodyColor,
+                        spine: spineColor || '#000000',
+                        fin: finColor,
+                        spots: spots
+                    };
+
+                    entity.phenotype = koiData.genetics.spotPhenotypeGenes ? calculateSpotPhenotype(koiData.genetics.spotPhenotypeGenes, koiData) : undefined;
+                    entity.geneticsHash = geneticsHash;
+                }
 
                 entity.data = {
                     ...koiData,
@@ -613,12 +625,31 @@ export class GameEngine {
             this.ctx.arc(food.position.x, food.position.y, 4, 0, Math.PI * 2);
             this.ctx.fill();
         });
+
+        // FPS Display (개발자 패널)
+        if (this.showFPS) {
+            this.ctx.save();
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(10, this.height - 35, 80, 25);
+            this.ctx.fillStyle = this.currentFPS >= 50 ? '#4ade80' : this.currentFPS >= 30 ? '#fbbf24' : '#f87171';
+            this.ctx.font = 'bold 14px monospace';
+            this.ctx.fillText(`FPS: ${this.currentFPS}`, 18, this.height - 17);
+            this.ctx.restore();
+        }
     }
 
     private loop = (timestamp: number) => {
         try {
             const dt = (timestamp - this.lastTime) / 1000;
             this.lastTime = timestamp;
+
+            // FPS 계산
+            this.frameCount++;
+            if (timestamp - this.fpsLastTime >= 1000) {
+                this.currentFPS = this.frameCount;
+                this.frameCount = 0;
+                this.fpsLastTime = timestamp;
+            }
 
             const safeDt = Math.min(dt, 0.1);
 

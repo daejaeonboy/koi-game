@@ -27,7 +27,7 @@ import { saveGameToCloud, loadUserDataOnce } from './services/sync';
 import { SessionConflictModal } from './components/SessionConflictModal';
 import { APDisplay } from './components/APDisplay';
 import { AdRewardModal } from './components/AdRewardModal';
-import { AdType, getAdReward, initializeAdMob, showRewardAd } from './services/ads';
+import { AdType, getAdReward, initializeAds, showRewardAd } from './services/ads';
 import { listenToAPBalance, setAPBalance } from './services/points';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './services/firebase';
@@ -149,6 +149,7 @@ export const App: React.FC = () => {
   const [isCloudSyncReady, setIsCloudSyncReady] = useState(false);
 
   // Achievement System
+  const [initialAchievementData, setInitialAchievementData] = useState<{ unlockedIds: string[]; claimedIds: string[]; } | null>(null);
   const {
     achievements,
     unlockedIds,
@@ -156,22 +157,46 @@ export const App: React.FC = () => {
     checkAchievements,
     claimReward,
     hasUnclaimedRewards,
-    totalPoints: achievementScore
-  } = useAchievements(user?.uid);
+    totalPoints: achievementScore,
+  } = useAchievements(user?.uid, initialAchievementData);
   const [isAchievementModalOpen, setIsAchievementModalOpen] = useState(false);
+  const lastAchievementCheckKeyRef = useRef('');
 
   // Show achievement unlock notification
   useEffect(() => {
-    if (user?.uid && koiList.length > 0) {
-      const newUnlocks = checkAchievements(koiList);
-      if (newUnlocks && newUnlocks.length > 0) {
-        // Show notification for the first unlocked achievement in this batch
-        setNotification({
-          message: `🏆 업적 달성: ${newUnlocks[0].title}`,
-          type: 'success'
-        });
-        audioManager.playSFX('click'); // Reuse existing SFX or add new one
-      }
+    if (!user?.uid || koiList.length === 0) return;
+
+    // 업적 조건과 무관한 상태(예: 스태미나/수질 변화)로 재검사를 반복하지 않도록 키를 계산합니다.
+    const achievementCheckKey = koiList
+      .map((koi) => {
+        const spotsSignature = koi.genetics.spots
+          .map((spot) => `${spot.color}:${spot.shape ?? ''}:${Math.round(spot.x)}:${Math.round(spot.y)}:${Math.round(spot.size)}`)
+          .join('|');
+
+        return [
+          koi.id,
+          koi.growthStage,
+          koi.genetics.baseColorGenes.join(','),
+          koi.genetics.lightness ?? '',
+          koi.genetics.saturation ?? '',
+          (koi.genetics.albinoAlleles ?? []).join(','),
+          spotsSignature,
+        ].join(':');
+      })
+      .sort()
+      .join('||');
+
+    if (lastAchievementCheckKeyRef.current === achievementCheckKey) return;
+    lastAchievementCheckKeyRef.current = achievementCheckKey;
+
+    const newUnlocks = checkAchievements(koiList);
+    if (newUnlocks && newUnlocks.length > 0) {
+      // Show notification for the first unlocked achievement in this batch
+      setNotification({
+        message: `🏆 업적 달성: ${newUnlocks[0].title}`,
+        type: 'success'
+      });
+      audioManager.playSFX('click'); // Reuse existing SFX or add new one
     }
   }, [koiList, user?.uid, checkAchievements]);
 
@@ -194,7 +219,6 @@ export const App: React.FC = () => {
       audioManager.playSFX('coin');
     });
   };
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMarketplaceOperationPending = useRef(false);
   const feedingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const feedingDelayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -217,6 +241,11 @@ export const App: React.FC = () => {
 
   // Latest state refs for interval access
   const latestFoodCountsRef = useRef({ food: foodCount, corn: cornCount, type: selectedFoodType });
+  const pondsRef = useRef(ponds);
+  const activePondIdRef = useRef(activePondId);
+  const lastLocalSavePayloadRef = useRef<string | null>(null);
+  const lastCloudSavePayloadRef = useRef<string | null>(null);
+
   useEffect(() => {
     latestFoodCountsRef.current = { food: foodCount, corn: cornCount, type: selectedFoodType };
   }, [foodCount, cornCount, selectedFoodType]);
@@ -268,9 +297,9 @@ export const App: React.FC = () => {
 
   // --- Effects for New Features ---
 
-  // Initialize AdMob
+  // Initialize web ads
   useEffect(() => {
-    initializeAdMob();
+    initializeAds();
   }, []);
 
   // Auth check
@@ -299,8 +328,17 @@ export const App: React.FC = () => {
     if (!user) {
       setAdPoints(0);
       setUserNickname('');
+      setInitialAchievementData(null);
+      lastCloudSavePayloadRef.current = null;
+      lastAchievementCheckKeyRef.current = '';
     }
   }, [user]);
+
+  useEffect(() => {
+    // 사용자 전환 시 첫 클라우드 저장을 허용하도록 이전 저장 해시를 초기화합니다.
+    lastCloudSavePayloadRef.current = null;
+    lastAchievementCheckKeyRef.current = '';
+  }, [user?.uid]);
 
   const resolvedUserNickname = useMemo(() => {
     const fromProfile = userNickname.trim();
@@ -327,22 +365,9 @@ export const App: React.FC = () => {
       honorPoints,
       koiNameCounter,
     };
+    pondsRef.current = ponds;
+    activePondIdRef.current = activePondId;
   }, [ponds, activePondId, zenPoints, adPoints, foodCount, cornCount, medicineCount, honorPoints, koiNameCounter]);
-
-  // Periodic Save (Every 5 seconds) to prevent excessive writes
-  useEffect(() => {
-    const saveInterval = setInterval(() => {
-      if (gameStateRef.current) {
-        try {
-          localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(gameStateRef.current));
-        } catch (error) {
-          console.error("Failed to save game state:", error);
-        }
-      }
-    }, 5000);
-
-    return () => clearInterval(saveInterval);
-  }, []);
 
   // Session & Cloud Sync Logic (통합 최적화: 모든 사용자 데이터를 병렬로 1회 로드)
   useEffect(() => {
@@ -352,10 +377,6 @@ export const App: React.FC = () => {
 
     const initSession = async () => {
       let cloudReady = false;
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
       if (!user) {
         setIsCloudSyncReady(false);
         return;
@@ -363,18 +384,24 @@ export const App: React.FC = () => {
       setIsCloudSyncReady(false);
       try {
         // 병렬 실행: 세션 시작 + 사용자 데이터 통합 로드
-        const [, userData] = await Promise.all([
+        const [, userData, verifiedNickname] = await Promise.all([
           startSession(user.uid),
-          loadUserDataOnce(user.uid)
+          loadUserDataOnce(user.uid),
+          ensureUserProfileNickname(user.uid, user.displayName, user.email)
         ]);
         if (cancelled) return;
 
         // 통합 데이터에서 한번에 설정
         if (userData) {
           if (userData.gameData) handleLoadGame(userData.gameData);
-          if (userData.nickname) setUserNickname(userData.nickname);
           setAdPoints(userData.ap);
+          if (userData.achievements) {
+            setInitialAchievementData(userData.achievements);
+          }
         }
+
+        // verifiedNickname(Firestore에 저장된 명칭)으로 로컬 상태 업데이트
+        setUserNickname(verifiedNickname);
 
         // 실시간 구독 설정 (이후 변경사항 감지용)
         unsubscribeSession = listenToActiveDevice(user.uid, () => {
@@ -401,25 +428,35 @@ export const App: React.FC = () => {
   // Periodic Save (Cloud + Local)
   useEffect(() => {
     const saveInterval = setInterval(async () => {
-      if (!gameStateRef.current) return;
+      const currentState = gameStateRef.current;
+      if (!currentState) return;
 
-      // Local Save
-      try {
-        localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(gameStateRef.current));
-      } catch (error: any) { console.error("Local save failed:", error); }
+      const payload = JSON.stringify(currentState);
 
-      // Cloud Save (Only if logged in and ready)
-      if (user && isCloudSyncReady) {
-        if (isMarketplaceOperationPending.current) {
-          console.log('[Marketplace] Periodic cloud save skipped due to pending operation.');
-          return;
-        }
+      // Local save only when payload changes.
+      if (payload !== lastLocalSavePayloadRef.current) {
         try {
-          await saveGameToCloud(user.uid, gameStateRef.current);
+          localStorage.setItem(SAVE_GAME_KEY, payload);
+          lastLocalSavePayloadRef.current = payload;
         } catch (error: any) {
-          if (error.code !== 'unavailable') {
-            console.error("Cloud save failed:", error);
-          }
+          console.error("Local save failed:", error);
+        }
+      }
+
+      // Cloud save only when payload changes.
+      if (!user || !isCloudSyncReady) return;
+      if (isMarketplaceOperationPending.current) {
+        console.log('[Marketplace] Periodic cloud save skipped due to pending operation.');
+        return;
+      }
+      if (payload === lastCloudSavePayloadRef.current) return;
+
+      try {
+        await saveGameToCloud(user.uid, currentState);
+        lastCloudSavePayloadRef.current = payload;
+      } catch (error: any) {
+        if (error.code !== 'unavailable') {
+          console.error("Cloud save failed:", error);
         }
       }
     }, 5000);
@@ -442,16 +479,19 @@ export const App: React.FC = () => {
         console.log(`[Claimer] ${claimableKois.length} claimable koi(s) found! Moving to pond...`);
 
         // 1. 현재 연못 상태 업데이트
-        const activePond = ponds[activePondId];
-        if (activePond) {
+        const currentPonds = pondsRef.current;
+        const targetPondId = activePondIdRef.current;
+        const targetPond = currentPonds[targetPondId];
+        if (targetPond) {
           const updatedPonds: Ponds = {
-            ...ponds,
-            [activePondId]: {
-              ...activePond,
-              kois: [...activePond.kois, ...claimableKois]
+            ...currentPonds,
+            [targetPondId]: {
+              ...targetPond,
+              kois: [...targetPond.kois, ...claimableKois]
             }
           };
           setPonds(updatedPonds);
+          pondsRef.current = updatedPonds;
           setNotification({ message: `${claimableKois.length}마리의 잉어를 수령했습니다!`, type: 'success' });
 
           // 2. 서버의 root 'kois' 필드 비우기 (중복 수령 방지)
@@ -460,12 +500,17 @@ export const App: React.FC = () => {
             console.log('[Claimer] Server claimed kois cleared successfully.');
 
             // 3. 즉시 저장 (데이터 유실 방지)
+            const baseState = gameStateRef.current;
+            if (!baseState) return;
             const stateToSave: SavedGameState = {
-              ...gameStateRef.current!,
+              ...baseState,
               ponds: updatedPonds
             };
-            localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(stateToSave));
+            const payload = JSON.stringify(stateToSave);
+            localStorage.setItem(SAVE_GAME_KEY, payload);
+            lastLocalSavePayloadRef.current = payload;
             await saveGameToCloud(user.uid, stateToSave);
+            lastCloudSavePayloadRef.current = payload;
           } catch (error: any) {
             console.error('[Claimer] Failed to clear claimed kois or sync:', error);
           }
@@ -474,7 +519,7 @@ export const App: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [user, isCloudSyncReady, ponds, activePondId]);
+  }, [user, isCloudSyncReady]);
 
   // --- Shadow Koi Cleanup ---
   // 등록 중 오류가 발생하여 등록은 되었으나 연못에서 안 사라진 경우를 대비한 2차 보정
@@ -483,9 +528,10 @@ export const App: React.FC = () => {
 
     const unsubscribe = fetchUserActiveListings(user.uid, (listings) => {
       const activeListingKoiIds = new Set(listings.map(l => l.koiData.id));
+      const currentPonds = pondsRef.current;
 
       let hasShadowKoi = false;
-      Object.values(ponds).forEach(pond => {
+      Object.values(currentPonds).forEach(pond => {
         if (pond.kois.some(koi => activeListingKoiIds.has(koi.id))) {
           hasShadowKoi = true;
         }
@@ -508,6 +554,7 @@ export const App: React.FC = () => {
             ...gameStateRef.current!,
             ponds: next
           };
+          pondsRef.current = next;
 
           return next;
         });
@@ -515,7 +562,7 @@ export const App: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [user, isCloudSyncReady, ponds]);
+  }, [user, isCloudSyncReady]);
 
   const handleSaveNickname = useCallback(async (nickname: string) => {
     if (!user) return;
@@ -567,9 +614,6 @@ export const App: React.FC = () => {
 
 
   // Marketplace Handlers
-  const handleRenameKoi = (koiId: string, nextName: string) => {
-    renameKoi(koiId, nextName);
-  };
 
   const handleListingCreated = async (koiId: string, listingFee: number) => {
     console.log('[Marketplace] Listing created atomically. Updating local state and pausing sync...');
@@ -996,6 +1040,7 @@ export const App: React.FC = () => {
           honorPoints: nextHonorPoints
         };
         await saveGameToCloud(user.uid, immediateState);
+        lastCloudSavePayloadRef.current = JSON.stringify(immediateState);
       } catch (e) {
         console.error("Immediate cloud sync failed:", e);
       }
@@ -1209,7 +1254,7 @@ export const App: React.FC = () => {
       {
         notification && (
           <div
-            className={`absolute top-10 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-xl font-bold transition-all duration-300 ${notification.type === 'error'
+            className={`absolute top-10 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-xl font-bold transition-all duration-300 whitespace-nowrap ${notification.type === 'error'
               ? 'bg-white text-red-600 border-2 border-red-600'
               : 'bg-white text-black border border-gray-300'
               }`}
@@ -1446,7 +1491,6 @@ export const App: React.FC = () => {
           koi={activeKoi}
           totalKoiCount={koiList.length}
           onClose={() => setActiveKoi(null)}
-          onRename={handleRenameKoi}
           onSell={(koi) => {
             handleSell(koi);
             setActiveKoi(null);
@@ -1472,7 +1516,6 @@ export const App: React.FC = () => {
             setIsPondInfoModalOpen(false);
             setNotification({ message: '코이들이 새로운 연못으로 이사했습니다!', type: 'success' });
           }}
-          onRenameKoi={handleRenameKoi}
           onToggleFavorite={toggleKoiFavorite}
         />
       }

@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Achievement, AchievementState, Koi } from '../types';
 import { ACHIEVEMENTS, checkUnlockableAchievements } from '../utils/achievements';
-import { addAP } from '../services/points'; // Direct import
+import { updateUserGameData } from '../services/firestore';
 
-export const useAchievements = (userId: string | undefined) => {
+export const useAchievements = (
+    userId: string | undefined,
+    initialData?: { unlockedIds: string[]; claimedIds: string[]; } | null
+) => {
     const [state, setState] = useState<AchievementState>({
         unlockedIds: [],
         claimedIds: [],
@@ -11,109 +14,119 @@ export const useAchievements = (userId: string | undefined) => {
         lastChecked: Date.now(),
     });
 
-    // Load from local storage on mount (User specific)
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    // Load initial data (Priority: Firestore > LocalStorage)
     useEffect(() => {
-        if (!userId) return;
+        if (!userId) {
+            setIsLoaded(false);
+            return;
+        }
+
         const key = `koi_garden_achievements_${userId}`;
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                setState(prev => ({
-                    ...prev,
-                    unlockedIds: parsed.unlockedIds || [],
-                    claimedIds: parsed.claimedIds || [],
-                    totalPoints: parsed.totalPoints || 0,
-                }));
-            } catch (e) {
-                console.error("Failed to load achievements", e);
-            }
-        } else {
-            // Reset if no data for this user
+
+        if (initialData) {
+            // Load from Firestore data passed from App.tsx
+            const total = initialData.claimedIds.reduce((sum, id) => {
+                const ach = ACHIEVEMENTS.find(a => a.id === id);
+                return sum + (ach?.reward.achievementPoints || 0);
+            }, 0);
+
             setState({
-                unlockedIds: [],
-                claimedIds: [],
-                totalPoints: 0,
+                unlockedIds: initialData.unlockedIds,
+                claimedIds: initialData.claimedIds,
+                totalPoints: total,
                 lastChecked: Date.now(),
             });
-        }
-    }, [userId]);
+            setIsLoaded(true);
 
-    // Save to local storage on change
-    useEffect(() => {
+            // Migration: Keep local storage in sync as secondary backup
+            localStorage.setItem(key, JSON.stringify({
+                unlockedIds: initialData.unlockedIds,
+                claimedIds: initialData.claimedIds,
+                totalPoints: total,
+            }));
+        } else {
+            // Check LocalStorage if no Firestore data (for offline/migration)
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    setState(prev => ({
+                        ...prev,
+                        unlockedIds: parsed.unlockedIds || [],
+                        claimedIds: parsed.claimedIds || [],
+                        totalPoints: parsed.totalPoints || 0,
+                    }));
+                } catch (e) {
+                    console.error("Failed to load achievements", e);
+                }
+            }
+            setIsLoaded(true);
+        }
+    }, [userId, initialData]);
+
+    const saveToCloud = useCallback(async (newState: Partial<AchievementState>) => {
         if (!userId) return;
-        const key = `koi_garden_achievements_${userId}`;
-        const dataToSave = {
-            unlockedIds: state.unlockedIds,
-            claimedIds: state.claimedIds,
-            totalPoints: state.totalPoints,
-        };
-        localStorage.setItem(key, JSON.stringify(dataToSave));
-    }, [state.unlockedIds, state.claimedIds, state.totalPoints, userId]);
+        try {
+            await updateUserGameData(userId, {
+                achievementPoints: newState.totalPoints ?? state.totalPoints,
+                achievements: {
+                    unlockedIds: newState.unlockedIds ?? state.unlockedIds,
+                    claimedIds: newState.claimedIds ?? state.claimedIds,
+                }
+            });
+        } catch (e) {
+            console.error("Failed to sync achievements to cloud:", e);
+        }
+    }, [userId, state]);
 
     const checkAchievements = useCallback((kois: Koi[]) => {
+        if (!isLoaded) return [];
         const newUnlocks = checkUnlockableAchievements(kois, state.unlockedIds);
 
         if (newUnlocks.length > 0) {
             const newIds = newUnlocks.map(a => a.id);
+            const nextUnlockedIds = [...state.unlockedIds, ...newIds];
+
             setState(prev => ({
                 ...prev,
-                unlockedIds: [...prev.unlockedIds, ...newIds],
+                unlockedIds: nextUnlockedIds,
                 lastChecked: Date.now(),
             }));
 
-            // Optional: return new unlocks for notification toast
+            // Sync to cloud
+            saveToCloud({ unlockedIds: nextUnlockedIds });
+
             return newUnlocks;
         }
         return [];
-    }, [state.unlockedIds]);
+    }, [state.unlockedIds, isLoaded, saveToCloud]);
 
     const claimReward = useCallback(async (achievementId: string, onRewardClaimed?: (reward: Achievement['reward']) => void) => {
-        if (!userId) return; // Guard clause
+        if (!userId || !isLoaded) return;
         if (state.claimedIds.includes(achievementId)) return;
         if (!state.unlockedIds.includes(achievementId)) return;
 
         const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
         if (!achievement) return;
 
-        // 1. Add Achievement Points (State Update)
-        // Note: Actual points data is just stored in local storage state for now.
-
-        // 2. Add Items (handled by callback in App.tsx)
         if (onRewardClaimed) {
             onRewardClaimed(achievement.reward);
         }
 
         const newTotalPoints = (state.totalPoints || 0) + achievement.reward.achievementPoints;
+        const nextClaimedIds = [...state.claimedIds, achievementId];
 
         setState(prev => ({
             ...prev,
-            claimedIds: [...prev.claimedIds, achievementId],
+            claimedIds: nextClaimedIds,
             totalPoints: newTotalPoints
         }));
 
-        // Sync to Firestore if user is online
-        if (userId) {
-            import('../services/firestore').then(({ updateUserGameData }) => {
-                updateUserGameData(userId, { achievementPoints: newTotalPoints });
-            }).catch(console.error);
-        }
-    }, [state.claimedIds, state.unlockedIds, state.totalPoints, userId]);
-
-    // Sync total points to Firestore on mount/change to ensure consistency (Backfill)
-    useEffect(() => {
-        if (!userId || state.totalPoints === 0) return;
-        const syncToCloud = async () => {
-            // We can use a slight delay or just fire/forget
-            try {
-                const { updateUserGameData } = await import('../services/firestore');
-                await updateUserGameData(userId, { achievementPoints: state.totalPoints });
-            } catch (e) {
-                console.error("Failed to backfill achievement points:", e);
-            }
-        };
-        syncToCloud();
-    }, [userId, state.totalPoints]); // Syncs whenever point count changes or user logs in
+        // Sync to cloud
+        saveToCloud({ claimedIds: nextClaimedIds, totalPoints: newTotalPoints });
+    }, [state.claimedIds, state.unlockedIds, state.totalPoints, userId, isLoaded, saveToCloud]);
 
     const getAchievementStatus = useCallback((id: string) => {
         const isUnlocked = state.unlockedIds.includes(id);
@@ -131,6 +144,7 @@ export const useAchievements = (userId: string | undefined) => {
         claimReward,
         getAchievementStatus,
         hasUnclaimedRewards,
-        totalPoints: state.totalPoints || 0
+        totalPoints: state.totalPoints || 0,
+        isLoaded
     };
 };

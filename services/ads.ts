@@ -1,11 +1,6 @@
 // services/ads.ts
-import { AdMob, RewardAdOptions } from '@capacitor-community/admob';
-import { Capacitor } from '@capacitor/core';
 
 export type AdType = 'reward';
-
-// Google Test Ad Unit ID for Rewarded Video (Android)
-const AD_UNIT_ID = 'ca-app-pub-3940256099942544/5224354917';
 
 // AdSense H5 Types
 declare global {
@@ -15,111 +10,59 @@ declare global {
     }
 }
 
-export const initializeAdMob = async () => {
-    const platform = Capacitor.getPlatform();
-
-    if (platform === 'web') {
-        console.log('[AdService] Web platform detected. Initializing AdSense H5...');
-        // AdSense H5 is initialized via script tag in index.html
-        // We can set global config here if needed
-        if (window.adConfig) {
-            window.adConfig({
-                sound: 'on',
-                preloadAdBreaks: 'on'
-            });
-        }
-        return;
-    }
-
-    try {
-        await AdMob.initialize({
-            testingDevices: ['2077ef9a63d2b398840261c8221a0c9b'], // Add test devices if needed
-            initializeForTesting: true,
+export const initializeAds = async () => {
+    console.log('[AdService] Web platform detected. Initializing AdSense H5...');
+    // AdSense H5 is initialized via script tag in index.html
+    if (window.adConfig) {
+        window.adConfig({
+            sound: 'on',
+            preloadAdBreaks: 'on'
         });
-        console.log('[AdMob] Initialized');
-    } catch (e) {
-        console.error('[AdMob] Initialization failed', e);
     }
 };
 
 export const prepareRewardAd = async () => {
-    const platform = Capacitor.getPlatform();
-    if (platform === 'web') {
-        // H5 Ads usually preload automatically or via adConfig, 
-        // but currently there's no explicit manual preload API like AdMob's prepare
-        return;
-    }
-
-    try {
-        const options: RewardAdOptions = {
-            adId: AD_UNIT_ID,
-        };
-        await AdMob.prepareRewardVideoAd(options);
-        console.log('[AdMob] Reward video prepared');
-    } catch (e) {
-        console.error('[AdMob] Failed to prepare reward video', e);
-    }
+    // Web AdSense H5 does not provide explicit preload API.
+    return;
 };
 
 export const showRewardAd = async (): Promise<boolean> => {
-    const platform = Capacitor.getPlatform();
-
-    if (platform === 'web') {
-        return new Promise((resolve) => {
-            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-            // Use mock ad system if adBreak is not available or if we want to force it
-            // For now, let's allow a fallback to mock if adBreak is not ready
-            if (typeof window.adBreak !== 'function') {
-                console.log('[AdService] adBreak function not found or pending. Using mock ad (15s)...');
-                setTimeout(() => {
-                    console.log('[AdService] Mock ad completed.');
-                    resolve(true);
-                }, 15000);
-                return;
-            }
-
-            window.adBreak({
-                type: 'reward',
-                name: 'reward_ad',
-                beforeAd: () => {
-                    console.log('[AdSense] Ad starting...');
-                },
-                afterAd: () => {
-                    console.log('[AdSense] Ad finished');
-                },
-                adBreakDone: (placementInfo: any) => {
-                    console.log('[AdSense] adBreakDone', placementInfo);
-                    // breakStatus: 'viewed', 'dismissed', 'timeout', 'error', 'notReady'
-                    if (placementInfo.breakStatus === 'viewed' || (isLocal && placementInfo.breakStatus !== 'dismissed')) {
-                        if (isLocal && placementInfo.breakStatus !== 'viewed') {
-                            console.log('[AdService] Localhost override: granting reward despite breakStatus:', placementInfo.breakStatus);
-                        }
-                        resolve(true);
-                    } else {
-                        console.log('[AdSense] Ad not viewed completely:', placementInfo.breakStatus);
-                        resolve(false);
-                    }
-                }
-            });
-        });
-    }
-
-    // Native AdMob Logic
     return new Promise((resolve) => {
-        const showAd = async () => {
-            try {
-                const rewardItem = await AdMob.showRewardVideoAd();
-                console.log('[AdMob] Ad watched, reward:', rewardItem);
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        // Fallback mock ad for local/dev or when ad script is not ready.
+        if (typeof window.adBreak !== 'function') {
+            console.log('[AdService] adBreak function not found or pending. Using mock ad (15s)...');
+            setTimeout(() => {
+                console.log('[AdService] Mock ad completed.');
                 resolve(true);
-            } catch (e) {
-                console.error('[AdMob] Failed to show reward video', e);
-                // Try to prepare again for next time
-                await prepareRewardAd();
-                resolve(false);
+            }, 15000);
+            return;
+        }
+
+        window.adBreak({
+            type: 'reward',
+            name: 'reward_ad',
+            beforeAd: () => {
+                console.log('[AdSense] Ad starting...');
+            },
+            afterAd: () => {
+                console.log('[AdSense] Ad finished');
+            },
+            adBreakDone: (placementInfo: any) => {
+                console.log('[AdSense] adBreakDone', placementInfo);
+                // breakStatus: 'viewed', 'dismissed', 'timeout', 'error', 'notReady'
+                if (placementInfo.breakStatus === 'viewed' || (isLocal && placementInfo.breakStatus !== 'dismissed')) {
+                    if (isLocal && placementInfo.breakStatus !== 'viewed') {
+                        console.log('[AdService] Localhost override: granting reward despite breakStatus:', placementInfo.breakStatus);
+                    }
+                    resolve(true);
+                } else {
+                    console.log('[AdSense] Ad not viewed completely:', placementInfo.breakStatus);
+                    resolve(false);
+                }
             }
-        };
-        showAd();
+        });
     });
 };
 

@@ -69,17 +69,17 @@ export const MarketplaceModal: React.FC<MarketplaceModalProps> = ({
         <div className="marketplace-modal-overlay">
             <div className="marketplace-modal-content">
                 {/* Header */}
-                <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-gray-700 pb-4">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+                        <h2 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 whitespace-nowrap">
                             잉어 장터
                         </h2>
-                        <span className="bg-gray-800 text-xs px-2 py-1 rounded text-gray-400">Beta</span>
+                        <span className="bg-gray-800 text-[10px] sm:text-xs px-2 py-1 rounded text-gray-400">Beta</span>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className="bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700 flex items-center gap-2">
-                            <span className="text-xs text-gray-400">내 자산</span>
+                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                        <div className="bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700 flex items-center gap-2 whitespace-nowrap">
+                            <span className="text-[10px] sm:text-xs text-gray-400">내 자산</span>
                             <span className="text-yellow-400 font-bold">{userAP.toLocaleString()} AP</span>
                         </div>
                         <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">

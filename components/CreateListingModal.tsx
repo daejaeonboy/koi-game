@@ -161,7 +161,7 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                                     </button>
                                                     <KoiCSSPreview koi={k} className="w-16 h-16 mx-auto mb-2 border-2 border-white/20 shadow-lg" />
                                                     <div className="font-bold text-white">{k.name}</div>
-                                                    <div className="text-xs text-gray-400 mt-1">
+                                                    <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">
                                                         {k.growthStage === GrowthStage.FRY ? '치어' : k.growthStage === GrowthStage.JUVENILE ? '준성체' : '성체'}
                                                     </div>
                                                 </>
@@ -169,14 +169,14 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                         })()}
                                     </div>
                                 ) : (
-                                    <div className="h-full flex items-center justify-center text-gray-600 text-sm py-8">
+                                    <div className="h-full flex items-center justify-center text-gray-600 text-sm py-8 whitespace-nowrap">
                                         코이를 선택하세요
                                     </div>
                                 )}
                             </div>
 
                             <div className="mt-2">
-                                <label className="block text-xs text-gray-400 mb-1">판매 가격 (AP)</label>
+                                <label className="block text-xs text-gray-400 mb-1 whitespace-nowrap">판매 가격 (AP)</label>
                                 <div className="relative">
                                     <input
                                         type="number"
@@ -188,15 +188,15 @@ export const CreateListingModal: React.FC<CreateListingModalProps> = ({
                                     />
                                     <span className="absolute right-3 top-2.5 text-gray-400 text-sm">AP</span>
                                 </div>
-                                <p className="text-[10px] text-gray-500 mt-1">최소 {MIN_PRICE.toLocaleString()} AP</p>
+                                <p className="text-[10px] text-gray-500 mt-1 whitespace-nowrap">최소 {MIN_PRICE.toLocaleString()} AP</p>
                             </div>
 
                             <div className="mt-3 p-2 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
-                                <div className="flex justify-between items-center text-xs">
+                                <div className="flex justify-between items-center text-xs whitespace-nowrap gap-2">
                                     <span className="text-yellow-400">등록 비용</span>
                                     <span className="text-yellow-300 font-bold">{LISTING_FEE} AP</span>
                                 </div>
-                                <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1">
+                                <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1 whitespace-nowrap gap-2">
                                     <span>내 AP 잔액</span>
                                     <span className={userAP >= LISTING_FEE ? 'text-green-400' : 'text-red-400'}>{userAP.toLocaleString()} AP</span>
                                 </div>

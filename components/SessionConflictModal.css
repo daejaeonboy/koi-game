@@ -18,7 +18,7 @@
     padding: 2rem;
     border-radius: 12px;
     width: 90%;
-    max-width: 350px;
+    max-width: 400px;
     text-align: center;
     border: 1px solid #4a4e69;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
@@ -47,6 +47,7 @@
     padding: 0.8rem;
     border-radius: 6px;
     margin-bottom: 1.5rem;
+    white-space: nowrap;
 }
 
 .button-group {
@@ -63,6 +64,7 @@
     font-weight: bold;
     cursor: pointer;
     transition: filter 0.2s;
+    white-space: nowrap;
 }
 
 .button-group button:hover {

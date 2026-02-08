@@ -116,24 +116,24 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                         <SingleKoiCanvas koi={liveListing.koiData} width={400} height={180} isStatic={true} />
                     </div>
 
-                    <h3 className="text-2xl font-bold text-white">{liveListing.koiData.name}</h3>
-                    <p className="text-gray-400 text-sm mt-1">판매자: {liveListing.sellerNickname}</p>
+                    <h3 className="text-2xl font-bold text-white text-center">{liveListing.koiData.name}</h3>
+                    <p className="text-gray-400 text-sm mt-1 whitespace-nowrap">판매자: {liveListing.sellerNickname}</p>
                 </div>
 
                 <div className="bg-gray-800/50 rounded-xl p-4 mb-6 space-y-4">
-                    <div className="flex justify-between items-center pb-2 border-b border-gray-700">
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-700 whitespace-nowrap gap-4">
                         <span className="text-gray-400">판매 가격</span>
                         <span className="text-xl font-bold text-yellow-400">{liveListing.buyNowPrice?.toLocaleString()} AP</span>
                     </div>
 
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                        <div className="flex items-center gap-2 text-sm text-gray-400 whitespace-nowrap">
                             <span className="font-bold text-gray-500 w-12">[몸]</span>
                             <span>명도: <span className="text-gray-200">{Math.round(liveListing.koiData.genetics.lightness)}</span></span>
                             <span className="text-gray-600">|</span>
                             <span>채도: <span className="text-gray-200">{Math.round(liveListing.koiData.genetics.saturation)}</span></span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                        <div className="flex items-center gap-2 text-sm text-gray-400 whitespace-nowrap">
                             <span className="font-bold text-gray-500 w-12">[무늬]</span>
                             <span>점: <span className="text-cyan-300">{liveListing.koiData.genetics.spots.length}개</span></span>
                             <span className="text-gray-600">|</span>

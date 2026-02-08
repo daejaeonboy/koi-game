@@ -142,8 +142,8 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
                                 const rank = index + 1;
                                 const isCurrentUser = currUserId && user.uid === currUserId;
                                 const displayValue = activeTab === 'trophy'
-                                    ? (user.gameData.honorPoints || 0)
-                                    : (user.gameData.achievementPoints || 0);
+                                    ? (user.gameData?.honorPoints || 0)
+                                    : (user.gameData?.achievementPoints || 0);
 
                                 return (
                                     <div
@@ -165,7 +165,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose, use
 
                                         <div className="flex-1 min-w-0">
                                             <div className={`text-sm font-bold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>
-                                                {user.profile.nickname}
+                                                {user.profile?.nickname || `게스트_${user.uid?.slice(0, 5) || '???'}`}
                                                 {isCurrentUser && <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded uppercase ${activeTab === 'trophy' ? 'bg-yellow-600' : 'bg-purple-600'}`}>Me</span>}
                                             </div>
                                         </div>

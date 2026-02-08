@@ -86,7 +86,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, isOw
                             <Clock size={10} className="text-cyan-400" /> {timeString}
                         </span>
                     </div>
-                    <div className="flex flex-col items-end leading-none">
+                    <div className="flex flex-col items-end leading-none whitespace-nowrap">
                         <div className="text-yellow-400 font-black text-lg tracking-tight">
                             {(buyNowPrice || currentBid).toLocaleString()} <span className="text-[10px] font-bold text-gray-400">AP</span>
                         </div>

@@ -59,6 +59,7 @@ export class GameEngine {
     private fpsLastTime = 0;
     private currentFPS = 0;
     private showFPS = import.meta.env.DEV; // 개발자 패널용 FPS 표시 (개발 환경에서만)
+    private readonly resizeListener = () => this.resize();
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -68,7 +69,7 @@ export class GameEngine {
         this.waterEffects = new WaterEffects();
 
         this.resize();
-        window.addEventListener('resize', this.resize.bind(this));
+        window.addEventListener('resize', this.resizeListener);
     }
 
     public onFoodEaten?: (koiId: string, foodId: number, feedAmount: number, position: { x: number, y: number }) => void;
@@ -213,6 +214,11 @@ export class GameEngine {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
+    }
+
+    public destroy() {
+        this.stop();
+        window.removeEventListener('resize', this.resizeListener);
     }
 
     private selectedIds: Set<string> = new Set();

@@ -11,12 +11,8 @@ const KoiListItem: React.FC<{
   onViewDetail: () => void;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
-  onRename: (id: string, nextName: string) => void;
   onToggleFavorite: (id: string) => void;
-}> = ({ koi, index, onViewDetail, isSelected, onToggleSelect, onRename, onToggleFavorite }) => {
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
-  const [nameError, setNameError] = useState<string | null>(null);
+}> = ({ koi, index, onViewDetail, isSelected, onToggleSelect, onToggleFavorite }) => {
   const phenotype = getPhenotype(koi.genetics.baseColorGenes);
   const albinoAlleles = koi.genetics.albinoAlleles || [false, false];
   const isAlbino = albinoAlleles[0] && albinoAlleles[1];
@@ -27,39 +23,6 @@ const KoiListItem: React.FC<{
 
   const rarityScore = calculateRarityScore(koi);
   const value = calculateKoiValue(koi);
-
-  const startEditName = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setNameDraft(koi.name ?? '');
-    setNameError(null);
-    setIsEditingName(true);
-  };
-
-  const cancelEditName = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsEditingName(false);
-    setNameDraft('');
-    setNameError(null);
-  };
-
-  const commitEditName = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-
-    const trimmed = nameDraft.trim();
-    if (!trimmed) {
-      setNameError('이름을 입력해주세요.');
-      return;
-    }
-    if (trimmed.length > 20) {
-      setNameError('이름은 20자 이하로 입력해주세요.');
-      return;
-    }
-
-    onRename(koi.id, trimmed);
-    setIsEditingName(false);
-    setNameDraft('');
-    setNameError(null);
-  };
 
   return (
     <div
@@ -94,84 +57,29 @@ const KoiListItem: React.FC<{
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            {isEditingName ? (
-              <div className="flex items-center gap-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-                <input
-                  value={nameDraft}
-                  onChange={(e) => {
-                    setNameDraft(e.target.value);
-                    setNameError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitEditName();
-                    if (e.key === 'Escape') {
-                      setIsEditingName(false);
-                      setNameDraft('');
-                      setNameError(null);
-                    }
-                  }}
-                  className="w-36 bg-gray-900/60 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:border-cyan-500 focus:outline-none"
-                  placeholder="이름 입력"
-                  maxLength={20}
-                  autoFocus
-                />
-                <button
-                  onClick={(e) => commitEditName(e)}
-                  className="p-1 rounded bg-cyan-700 hover:bg-cyan-600 text-white"
-                  title="저장"
-                  type="button"
-                >
-                  <Check size={14} />
-                </button>
-                <button
-                  onClick={cancelEditName}
-                  className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600"
-                  title="취소"
-                  type="button"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <span className="font-bold text-gray-200 truncate">{koi.name || `코이 #${index}`}</span>
-                <button
-                  onClick={startEditName}
-                  className="p-1 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-                  title="이름 변경"
-                  type="button"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onToggleFavorite(koi.id); }}
-                  className={`p-1 rounded transition-colors ${koi.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
-                  title={koi.isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
-                  type="button"
-                >
-                  <Star size={18} fill={koi.isFavorite ? "currentColor" : "none"} />
-                </button>
-                <span className="text-xs text-gray-500 font-mono">#{index}</span>
-              </>
-            )}
-            <span className="text-xs bg-gray-800 px-1.5 py-0.5 rounded border border-gray-600 text-gray-400">
+            <span className="font-bold text-gray-200 truncate">{koi.name || `코이 #${index}`}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(koi.id); }}
+              className={`p-1 rounded transition-colors ${koi.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
+              title={koi.isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+              type="button"
+            >
+              <Star size={18} fill={koi.isFavorite ? "currentColor" : "none"} />
+            </button>
+            <span className="text-xs text-gray-500 font-mono">#{index}</span>
+            <span className="text-xs bg-gray-800 px-1.5 py-0.5 rounded border border-gray-600 text-gray-400 whitespace-nowrap">
               {koi.growthStage === 'adult' ? '성체' : koi.growthStage === 'juvenile' ? '준성체' : '치어'}
             </span>
             {(koi.stamina ?? 0) <= 5 || koi.sickTimestamp ? (
-              <span className="text-xs bg-red-900/50 px-1.5 py-0.5 rounded border border-red-500/50 text-red-400 font-bold animate-pulse">
+              <span className="text-xs bg-red-900/50 px-1.5 py-0.5 rounded border border-red-500/50 text-red-400 font-bold animate-pulse whitespace-nowrap">
                 병듦
               </span>
             ) : null}
           </div>
-          <span className="text-xs font-mono text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded border border-yellow-400/30">
+          <span className="text-xs font-mono text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded border border-yellow-400/30 whitespace-nowrap">
             {value} ZP
           </span>
         </div>
-        {isEditingName && nameError && (
-          <div className="mt-1 text-[11px] text-red-300 bg-red-900/30 border border-red-800 rounded px-2 py-1" onClick={(e) => e.stopPropagation()}>
-            {nameError}
-          </div>
-        )}
         <div className="flex flex-col gap-0.5 mt-1">
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="font-bold text-gray-500">[몸]</span>
@@ -213,7 +121,6 @@ interface PondInfoModalProps {
   onSell: (kois: Koi[]) => void;
   onBreed: (kois: Koi[]) => void;
   onMove: (kois: Koi[], targetPondId: string) => void;
-  onRenameKoi: (koiId: string, nextName: string) => void;
   onToggleFavorite: (koiId: string) => void;
 }
 
@@ -230,7 +137,6 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
   onSell,
   onBreed,
   onMove,
-  onRenameKoi,
   onToggleFavorite
 }) => {
   const [sortOption, setSortOption] = useState<SortOption>('default');
@@ -399,7 +305,6 @@ export const PondInfoModal: React.FC<PondInfoModalProps> = ({
                   onViewDetail={() => onKoiSelect(koi)}
                   isSelected={selectedKoiIds.has(koi.id)}
                   onToggleSelect={toggleSelect}
-                  onRename={onRenameKoi}
                   onToggleFavorite={onToggleFavorite}
                 />
               ))}

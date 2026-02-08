@@ -56,6 +56,10 @@ export interface UserDataSnapshot {
     nickname: string | null;
     ap: number;
     activeDeviceId: string | null;
+    achievements?: {
+        unlockedIds: string[];
+        claimedIds: string[];
+    };
 }
 
 export const loadUserDataOnce = async (userId: string): Promise<UserDataSnapshot | null> => {
@@ -72,6 +76,7 @@ export const loadUserDataOnce = async (userId: string): Promise<UserDataSnapshot
         nickname: data.profile?.nickname || null,
         ap: typeof data.ap === 'number' ? data.ap : 0,
         activeDeviceId: data.activeDeviceId || null,
+        achievements: data.gameData?.achievements || null,
     };
 };
 

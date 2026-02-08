@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { Koi as KoiType, Decoration, DecorationType, PondTheme } from '../types';
-import { Koi } from './Koi';
 import { GameEngine } from '../utils/GameEngine';
 
 
@@ -82,16 +81,6 @@ const DecorationComponent: React.FC<{ decoration: Decoration }> = ({ decoration 
   return null;
 };
 
-const Rocks: React.FC = () => (
-  <div className="absolute bottom-[-40px] left-[-50px] w-64 h-48 z-0 opacity-60 pointer-events-none" style={{ transform: 'rotate(-15deg)' }}>
-    <svg viewBox="0 0 200 100" className="w-full h-full">
-      <path d="M 50,100 C 20,100 0,80 0,50 C 0,20 20,0 50,0 L 150,0 C 180,0 200,20 200,50 C 200,80 180,100 150,100 Z" fill="#374151" transform="translate(10, 25) rotate(-10 100 50) scale(0.9)" />
-      <path d="M 120,100 C 100,100 80,90 80,70 C 80,50 100,40 120,40 L 180,40 C 200,40 210,50 210,70 C 210,90 200,100 180,100 Z" fill="#4b5563" transform="translate(-50, 45) rotate(20 145 70) scale(0.7)" />
-      <path d="M 90,100 C 70,100 50,90 50,70 C 50,50 70,40 90,40 L 150,40 C 170,40 180,50 180,70 C 180,90 170,100 150,100 Z" fill="#4b5563" transform="translate(-20, 60) rotate(-5 115 70) scale(0.5)" />
-    </svg>
-  </div>
-);
-
 export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, theme, onKoiClick, onBackgroundClick, onPointerMove, onPointerUp, updateKoiPositions, isSellModeActive, isFeedModeActive, breedingSelection, sellAnimations, feedAnimations, foodDropAnimations, foodPellets, onFoodEaten, isNight, waterQuality }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
@@ -115,7 +104,7 @@ export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, the
 
     return () => {
       if (engineRef.current) {
-        engineRef.current.stop();
+        engineRef.current.destroy();
         engineRef.current = null;
       }
     };
@@ -167,17 +156,6 @@ export const Pond: React.FC<PondProps> = ({ gameState, koiList, decorations, the
       engineRef.current.onFoodEaten = onFoodEaten;
     }
   }, [onFoodEaten]);
-
-  // Handle Resize
-  useEffect(() => {
-    const handleResize = () => {
-      // Engine handles resize internally via event listener, 
-      // but we might need to trigger a re-render or layout update if needed.
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
 
   const getPondClassName = () => {
     // Base classes without background colors

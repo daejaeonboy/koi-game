@@ -64,13 +64,13 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-4xl max-h-[85svh] flex flex-col shadow-2xl">
                 {/* Header - Pond Menu Style */}
-                <div className="flex justify-between items-center p-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 gap-3 border-b border-gray-700 bg-gray-900/40 rounded-t-lg">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 w-full sm:w-auto">
                         {TABS.map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`px-5 py-2 rounded-md font-bold transition-all whitespace-nowrap text-sm border-2 ${activeTab === tab.id
+                                className={`px-4 py-2 rounded-md font-bold transition-all whitespace-nowrap text-sm border-2 ${activeTab === tab.id
                                     ? 'bg-cyan-600 text-white border-cyan-500'
                                     : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200 hover:border-gray-600'
                                     }`}
@@ -80,8 +80,8 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 text-sm text-yellow-500 font-bold bg-gray-800/80 px-3 py-1.5 rounded-md border border-gray-700">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 text-sm text-yellow-500 font-bold bg-gray-800/80 px-3 py-1.5 rounded-md border border-gray-700 whitespace-nowrap">
                             <Star className="w-4 h-4 fill-current" />
                             <span>{totalPoints.toLocaleString()} Pts</span>
                         </div>
@@ -169,7 +169,7 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
                                                 isClaimed ? (
                                                     <button
                                                         disabled
-                                                        className="w-full h-full bg-gray-800 text-gray-500 text-xs font-bold rounded border border-gray-700 cursor-default flex items-center justify-center gap-2"
+                                                        className="w-full h-full bg-gray-800 text-gray-500 text-xs font-bold rounded border border-gray-700 cursor-default flex items-center justify-center gap-2 whitespace-nowrap"
                                                     >
                                                         <Check className="w-3 h-3" />
                                                         획득 완료
@@ -177,7 +177,7 @@ export const AchievementModal: React.FC<AchievementModalProps> = ({
                                                 ) : (
                                                     <button
                                                         onClick={() => onClaim(ach.id, ach.reward)}
-                                                        className="w-full h-full bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold rounded transition-colors shadow-md flex items-center justify-center gap-1"
+                                                        className="w-full h-full bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold rounded transition-colors shadow-md flex items-center justify-center gap-1 whitespace-nowrap"
                                                     >
                                                         보상 받기
                                                     </button>

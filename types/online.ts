@@ -31,6 +31,10 @@ export interface UserGameData {
     pondCapacity: number;
     honorPoints?: number;
     achievementPoints?: number; // New: Achievement Score for Ranking
+    achievements?: {
+        unlockedIds: string[];
+        claimedIds: string[];
+    };
 }
 
 /** 장터용 잉어 미리보기 정보 */
